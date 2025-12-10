@@ -165,7 +165,20 @@ export default function OnboardingPage() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-green-50 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-12 px-4 relative overflow-hidden">
+      {/* Winter background elements */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-0 left-0 w-full h-full">
+          <div className="absolute top-10 left-10 text-blue-200 dark:text-blue-800 text-4xl animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }}>❄</div>
+          <div className="absolute top-20 right-20 text-blue-200 dark:text-blue-800 text-3xl animate-pulse" style={{ animationDelay: '0.5s', animationDuration: '4s' }}>❄</div>
+          <div className="absolute top-40 left-1/4 text-blue-200 dark:text-blue-800 text-2xl animate-pulse" style={{ animationDelay: '1s', animationDuration: '3.5s' }}>❄</div>
+          <div className="absolute top-60 right-1/3 text-blue-200 dark:text-blue-800 text-3xl animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '4.5s' }}>❄</div>
+          <div className="absolute top-80 left-3/4 text-blue-200 dark:text-blue-800 text-2xl animate-pulse" style={{ animationDelay: '2s', animationDuration: '3s' }}>❄</div>
+          <div className="absolute bottom-20 left-20 text-blue-200 dark:text-blue-800 text-3xl animate-pulse" style={{ animationDelay: '2.5s', animationDuration: '4s' }}>❄</div>
+          <div className="absolute bottom-40 right-1/3 text-blue-200 dark:text-blue-800 text-4xl animate-pulse" style={{ animationDelay: '3s', animationDuration: '3.5s' }}>❄</div>
+        </div>
+      </div>
+      <div className="relative z-10">
       <div className="max-w-2xl mx-auto">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
           <h1 className="text-3xl font-bold text-center mb-8 text-gray-800 dark:text-white">
@@ -214,7 +227,7 @@ export default function OnboardingPage() {
                   onChange={(e) => setCurrentName(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && addPerson()}
                   placeholder="Enter a name"
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white focus:outline-none"
                 />
                 <button
                   onClick={addPerson}
@@ -289,7 +302,7 @@ export default function OnboardingPage() {
                               updateGift(person.id, giftIndex, e.target.value)
                             }
                             placeholder="What are you giving them? (optional)"
-                            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-800 dark:text-white focus:outline-none"
                           />
                           {person.gifts.length > 1 && (
                             <button
@@ -330,6 +343,7 @@ export default function OnboardingPage() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

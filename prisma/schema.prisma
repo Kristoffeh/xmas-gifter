@@ -25,6 +25,7 @@ model Person {
   id        String   @id @default(cuid())
   name      String
   userId    String
+  order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   gifts     Gift[]
