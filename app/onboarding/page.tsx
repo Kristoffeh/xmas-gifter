@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -22,6 +22,19 @@ export default function OnboardingPage() {
   const [peopleWithGifts, setPeopleWithGifts] = useState<PersonWithGifts[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Memoize snowfall animation data to prevent reset on re-renders
+  const snowfallData = useMemo(() => {
+    return Array.from({ length: 30 }).map((_, i) => {
+      const left = Math.random() * 100;
+      const duration = 20 + Math.random() * 20;
+      const delay = -(Math.random() * duration);
+      const size = 0.5 + Math.random() * 1;
+      const driftAmount = 20 + Math.random() * 40;
+      const animationName = `snowfall-${i}`;
+      return { left, duration, delay, size, driftAmount, animationName, id: i };
+    });
+  }, []);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -165,18 +178,51 @@ export default function OnboardingPage() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-12 px-4 relative overflow-hidden">
-      {/* Winter background elements */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-0 left-0 w-full h-full">
-          <div className="absolute top-10 left-10 text-blue-200 dark:text-blue-800 text-4xl animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }}>❄</div>
-          <div className="absolute top-20 right-20 text-blue-200 dark:text-blue-800 text-3xl animate-pulse" style={{ animationDelay: '0.5s', animationDuration: '4s' }}>❄</div>
-          <div className="absolute top-40 left-1/4 text-blue-200 dark:text-blue-800 text-2xl animate-pulse" style={{ animationDelay: '1s', animationDuration: '3.5s' }}>❄</div>
-          <div className="absolute top-60 right-1/3 text-blue-200 dark:text-blue-800 text-3xl animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '4.5s' }}>❄</div>
-          <div className="absolute top-80 left-3/4 text-blue-200 dark:text-blue-800 text-2xl animate-pulse" style={{ animationDelay: '2s', animationDuration: '3s' }}>❄</div>
-          <div className="absolute bottom-20 left-20 text-blue-200 dark:text-blue-800 text-3xl animate-pulse" style={{ animationDelay: '2.5s', animationDuration: '4s' }}>❄</div>
-          <div className="absolute bottom-40 right-1/3 text-blue-200 dark:text-blue-800 text-4xl animate-pulse" style={{ animationDelay: '3s', animationDuration: '3.5s' }}>❄</div>
-        </div>
+    <div 
+      className="min-h-screen py-12 px-4 relative overflow-hidden"
+      style={{
+        backgroundImage: 'url("https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1920&q=80")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      <div className="fixed inset-0 bg-black/40 dark:bg-black/60 pointer-events-none z-0"></div>
+      {/* Snowing Animation */}
+      <div className="fixed inset-0 pointer-events-none z-[1] overflow-hidden">
+        {snowfallData.map((snowflake) => (
+          <div key={snowflake.id}>
+            <style dangerouslySetInnerHTML={{__html: `
+              @keyframes ${snowflake.animationName} {
+                0% {
+                  transform: translate3d(0, -20px, 0);
+                  opacity: 0;
+                }
+                2% {
+                  opacity: 1;
+                }
+                98% {
+                  opacity: 1;
+                }
+                100% {
+                  transform: translate3d(${snowflake.driftAmount}px, calc(100vh + 20px), 0);
+                  opacity: 0;
+                }
+              }
+            `}} />
+            <div
+              className="snowflake"
+              style={{
+                left: `${snowflake.left}%`,
+                animation: `${snowflake.animationName} ${snowflake.duration}s linear ${snowflake.delay}s infinite`,
+                fontSize: `${snowflake.size}em`,
+              }}
+            >
+              ❄
+            </div>
+          </div>
+        ))}
       </div>
       <div className="relative z-10">
       <div className="max-w-2xl mx-auto">

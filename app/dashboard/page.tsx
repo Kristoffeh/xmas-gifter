@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useLanguage } from "@/lib/language-context";
@@ -37,6 +37,19 @@ export default function DashboardPage() {
     minutes: 0,
     seconds: 0,
   });
+
+  // Memoize snowfall animation data to prevent reset on re-renders
+  const snowfallData = useMemo(() => {
+    return Array.from({ length: 30 }).map((_, i) => {
+      const left = Math.random() * 100;
+      const duration = 20 + Math.random() * 20;
+      const delay = -(Math.random() * duration);
+      const size = 0.5 + Math.random() * 1;
+      const driftAmount = 20 + Math.random() * 40;
+      const animationName = `snowfall-${i}`;
+      return { left, duration, delay, size, driftAmount, animationName, id: i };
+    });
+  }, []);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -250,22 +263,51 @@ export default function DashboardPage() {
   const totalGifts = people.reduce((sum, p) => sum + (p.gifts?.length || 0), 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-12 px-4 relative overflow-hidden">
-      {/* Winter background elements */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        {/* Snowflakes */}
-        <div className="absolute top-0 left-0 w-full h-full">
-          <div className="absolute top-10 left-10 text-blue-200 dark:text-blue-800 text-4xl animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }}>❄</div>
-          <div className="absolute top-20 right-20 text-blue-200 dark:text-blue-800 text-3xl animate-pulse" style={{ animationDelay: '0.5s', animationDuration: '4s' }}>❄</div>
-          <div className="absolute top-40 left-1/4 text-blue-200 dark:text-blue-800 text-2xl animate-pulse" style={{ animationDelay: '1s', animationDuration: '3.5s' }}>❄</div>
-          <div className="absolute top-60 right-1/3 text-blue-200 dark:text-blue-800 text-3xl animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '4.5s' }}>❄</div>
-          <div className="absolute top-80 left-3/4 text-blue-200 dark:text-blue-800 text-2xl animate-pulse" style={{ animationDelay: '2s', animationDuration: '3s' }}>❄</div>
-          <div className="absolute top-96 right-10 text-blue-200 dark:text-blue-800 text-4xl animate-pulse" style={{ animationDelay: '2.5s', animationDuration: '4s' }}>❄</div>
-          <div className="absolute top-1/3 left-1/2 text-blue-200 dark:text-blue-800 text-3xl animate-pulse" style={{ animationDelay: '3s', animationDuration: '3.5s' }}>❄</div>
-          <div className="absolute top-2/3 right-1/4 text-blue-200 dark:text-blue-800 text-2xl animate-pulse" style={{ animationDelay: '3.5s', animationDuration: '4s' }}>❄</div>
-          <div className="absolute bottom-20 left-20 text-blue-200 dark:text-blue-800 text-3xl animate-pulse" style={{ animationDelay: '4s', animationDuration: '3s' }}>❄</div>
-          <div className="absolute bottom-40 right-1/3 text-blue-200 dark:text-blue-800 text-4xl animate-pulse" style={{ animationDelay: '4.5s', animationDuration: '4.5s' }}>❄</div>
-        </div>
+    <div 
+      className="min-h-screen py-12 px-4 relative overflow-hidden"
+      style={{
+        backgroundImage: 'url("https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1920&q=80")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      <div className="fixed inset-0 bg-black/40 dark:bg-black/60 pointer-events-none z-0"></div>
+      {/* Snowing Animation */}
+      <div className="fixed inset-0 pointer-events-none z-[1] overflow-hidden">
+        {snowfallData.map((snowflake) => (
+          <div key={snowflake.id}>
+            <style dangerouslySetInnerHTML={{__html: `
+              @keyframes ${snowflake.animationName} {
+                0% {
+                  transform: translate3d(0, -20px, 0);
+                  opacity: 0;
+                }
+                2% {
+                  opacity: 1;
+                }
+                98% {
+                  opacity: 1;
+                }
+                100% {
+                  transform: translate3d(${snowflake.driftAmount}px, calc(100vh + 20px), 0);
+                  opacity: 0;
+                }
+              }
+            `}} />
+            <div
+              className="snowflake"
+              style={{
+                left: `${snowflake.left}%`,
+                animation: `${snowflake.animationName} ${snowflake.duration}s linear ${snowflake.delay}s infinite`,
+                fontSize: `${snowflake.size}em`,
+              }}
+            >
+              ❄
+            </div>
+          </div>
+        ))}
       </div>
       <div className="relative z-10">
       <div className="max-w-4xl mx-auto">
@@ -301,7 +343,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 mb-6">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-8 mb-6 border border-white/30 dark:border-gray-700/30">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
               🎄 {t("dashboard.title")}
@@ -331,7 +373,7 @@ export default function DashboardPage() {
                 </svg>
               </button>
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                <div className="absolute right-0 mt-2 w-48 bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-lg border border-white/30 dark:border-gray-700/30 z-50">
                   <div className="py-1">
                     <button
                       onClick={() => {
@@ -417,7 +459,7 @@ export default function DashboardPage() {
 
           {/* Progress Bar */}
           {people.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 mb-6">
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-6 mb-6 border border-white/30 dark:border-gray-700/30">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                   {t("dashboard.giftProgress") || "Gift Progress"}
@@ -459,7 +501,7 @@ export default function DashboardPage() {
           {!addingPerson ? (
             <button
               onClick={() => setAddingPerson(true)}
-              className="w-full px-6 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-white font-semibold rounded-lg shadow-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition duration-200 flex items-center justify-center gap-2"
+              className="w-full px-6 py-3 bg-white/70 dark:bg-gray-800/70 backdrop-blur-md hover:bg-white/80 dark:hover:bg-gray-800/80 text-gray-800 dark:text-white font-semibold rounded-lg shadow-xl border-2 border-dashed border-gray-300/50 dark:border-gray-600/50 hover:border-gray-400 dark:hover:border-gray-500 transition duration-200 flex items-center justify-center gap-2"
             >
               <svg
                 className="w-5 h-5"
@@ -477,7 +519,7 @@ export default function DashboardPage() {
               {t("dashboard.addPerson") || "Add New Person"}
             </button>
           ) : (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 border-2 border-gray-200 dark:border-gray-700">
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-6 border-2 border-gray-200/50 dark:border-gray-700/50">
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -514,7 +556,7 @@ export default function DashboardPage() {
 
         <div className="space-y-6">
           {peopleWithGifts.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-8 border border-white/30 dark:border-gray-700/30">
               <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-white">
                 ✅ {t("dashboard.giftsFound")}
               </h2>
@@ -682,7 +724,7 @@ export default function DashboardPage() {
           )}
 
           {peopleWithoutGifts.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-8 border border-white/30 dark:border-gray-700/30">
               <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-white">
                 🎁 {t("dashboard.stillNeedGifts")}
               </h2>
@@ -863,7 +905,7 @@ export default function DashboardPage() {
           )}
 
           {people.length === 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 text-center">
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-8 text-center border border-white/30 dark:border-gray-700/30">
               <p className="text-gray-600 dark:text-gray-400">
                 {t("dashboard.noPeople")}
               </p>
