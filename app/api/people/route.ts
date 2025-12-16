@@ -118,3 +118,62 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const personId = searchParams.get("personId");
+
+    if (!personId) {
+      return NextResponse.json(
+        { error: "Person ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Verify person belongs to user
+    const person = await prisma.person.findFirst({
+      where: {
+        id: personId,
+        userId: session.user.id,
+      },
+      include: {
+        gifts: true,
+      },
+    });
+
+    if (!person) {
+      return NextResponse.json(
+        { error: "Person not found" },
+        { status: 404 }
+      );
+    }
+
+    // Only allow deletion if person has no gifts
+    if (person.gifts && person.gifts.length > 0) {
+      return NextResponse.json(
+        { error: "Cannot delete person with gifts" },
+        { status: 400 }
+      );
+    }
+
+    // Delete the person
+    await prisma.person.delete({
+      where: { id: personId },
+    });
+
+    return NextResponse.json({ message: "Person deleted" }, { status: 200 });
+  } catch (error) {
+    console.error("Error deleting person:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+

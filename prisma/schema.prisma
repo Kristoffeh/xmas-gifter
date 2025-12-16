@@ -36,6 +36,8 @@ model Gift {
   id          String   @id @default(cuid())
   description String
   personId    String
+  purchased   Boolean  @default(false)
+  giftWrapped Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   person      Person   @relation(fields: [personId], references: [id], onDelete: Cascade)

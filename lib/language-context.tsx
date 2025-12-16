@@ -42,6 +42,9 @@ const translations: Record<Language, Record<string, string>> = {
     "dashboard.allGiftsFound": "All gifts found! You're ready for Christmas!",
     "dashboard.peopleLeft": "people",
     "dashboard.stillNeedGiftsLower": "still need gifts",
+    "dashboard.done": "Done",
+    "dashboard.purchased": "Purchased",
+    "dashboard.wrapped": "Wrapped",
   },
   no: {
     // Dashboard
@@ -53,7 +56,7 @@ const translations: Record<Language, Record<string, string>> = {
     "dashboard.stillNeedGifts": "Trenger Fortsatt Gaver",
     "dashboard.noGiftPlanned": "Ingen gave planlagt ennå",
     "dashboard.addGift": "Legg til Gave",
-    "dashboard.edit": "Rediger",
+    "dashboard.edit": "Endre",
     "dashboard.delete": "Slett",
     "dashboard.save": "Lagre",
     "dashboard.cancel": "Avbryt",
@@ -72,6 +75,9 @@ const translations: Record<Language, Record<string, string>> = {
     "dashboard.allGiftsFound": "Alle gaver funnet! Du er klar for jul!",
     "dashboard.peopleLeft": "personer",
     "dashboard.stillNeedGiftsLower": "trenger fortsatt gaver",
+    "dashboard.done": "Ferdig",
+    "dashboard.purchased": "Kjøpt",
+    "dashboard.wrapped": "Pakket",
   },
 };
 

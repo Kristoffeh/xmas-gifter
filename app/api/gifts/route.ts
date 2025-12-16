@@ -134,6 +134,72 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { giftId, purchased, giftWrapped } = body;
+
+    if (!giftId) {
+      return NextResponse.json(
+        { error: "Gift ID is required" },
+        { status: 400 }
+      );
+    }
+
+    if (purchased === undefined && giftWrapped === undefined) {
+      return NextResponse.json(
+        { error: "At least one field (purchased or giftWrapped) must be provided" },
+        { status: 400 }
+      );
+    }
+
+    // Verify gift belongs to user's person
+    const gift = await prisma.gift.findFirst({
+      where: {
+        id: giftId,
+      },
+      include: {
+        person: true,
+      },
+    });
+
+    if (!gift || gift.person.userId !== session.user.id) {
+      return NextResponse.json(
+        { error: "Gift not found" },
+        { status: 404 }
+      );
+    }
+
+    // Update the gift with the provided fields
+    const updateData: { purchased?: boolean; giftWrapped?: boolean } = {};
+    if (purchased !== undefined) {
+      updateData.purchased = purchased;
+    }
+    if (giftWrapped !== undefined) {
+      updateData.giftWrapped = giftWrapped;
+    }
+
+    const updatedGift = await prisma.gift.update({
+      where: { id: giftId },
+      data: updateData,
+    });
+
+    return NextResponse.json({ gift: updatedGift }, { status: 200 });
+  } catch (error) {
+    console.error("Error updating gift status:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
