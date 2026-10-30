@@ -16,6 +16,7 @@ const translations: Record<Language, Record<string, string>> = {
   en: {
     // Dashboard
     "dashboard.title": "Christmas Gifter",
+    "dashboard.loading": "Loading…",
     "dashboard.totalPeople": "Total People",
     "dashboard.totalGifts": "Total Gifts",
     "dashboard.stillNeeded": "Still Needed",
@@ -73,6 +74,7 @@ const translations: Record<Language, Record<string, string>> = {
   no: {
     // Dashboard
     "dashboard.title": "Julegave Oversikt",
+    "dashboard.loading": "Laster…",
     "dashboard.totalPeople": "Personer",
     "dashboard.totalGifts": "Gaver",
     "dashboard.stillNeeded": "Gjenstående",
