@@ -52,6 +52,12 @@ const translations: Record<Language, Record<string, string>> = {
     "dashboard.moveDown": "Move down",
     "dashboard.removePerson": "Remove person",
     "dashboard.giftPlaceholder": "What are you giving them?",
+    "settings.title": "Personalize",
+    "settings.close": "Done",
+    "settings.cardBlur": "Card blur",
+    "settings.none": "None",
+    "settings.strong": "Strong",
+    "settings.reset": "Reset to default",
   },
   no: {
     // Dashboard
@@ -92,6 +98,12 @@ const translations: Record<Language, Record<string, string>> = {
     "dashboard.moveDown": "Flytt ned",
     "dashboard.removePerson": "Fjern person",
     "dashboard.giftPlaceholder": "Hva skal du gi dem?",
+    "settings.title": "Tilpass",
+    "settings.close": "Ferdig",
+    "settings.cardBlur": "Uskarphet på kort",
+    "settings.none": "Ingen",
+    "settings.strong": "Sterk",
+    "settings.reset": "Tilbakestill",
   },
 };
 

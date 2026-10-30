@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import { useLanguage } from "@/lib/language-context";
+import { DEFAULT_SETTINGS, SETTINGS_LIMITS, type UserSettings } from "@/lib/settings";
 
 const displayFont = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-display" });
 const bodyFont = Figtree({ subsets: ["latin"], variable: "--font-body" });
@@ -41,6 +42,10 @@ export default function DashboardPage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [addingPerson, setAddingPerson] = useState(false);
   const [newPersonName, setNewPersonName] = useState("");
+  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const saveSettingsTimer = useRef<ReturnType<typeof setTimeout>>();
+  const pendingSettings = useRef<Partial<UserSettings>>({});
   const [timeUntilChristmas, setTimeUntilChristmas] = useState({
     days: 0,
     hours: 0,
@@ -69,6 +74,7 @@ export default function DashboardPage() {
         router.push("/onboarding");
       } else {
         fetchPeople();
+        fetchSettings();
       }
     }
   }, [status, session, router]);
@@ -126,6 +132,38 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch("/api/settings");
+      if (response.ok) {
+        const data = await response.json();
+        setSettings(data.settings);
+      }
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+    }
+  };
+
+  // Applies the change immediately and saves it once the user stops adjusting
+  const handleChangeSetting = (updates: Partial<UserSettings>) => {
+    setSettings((current) => ({ ...current, ...updates }));
+    pendingSettings.current = { ...pendingSettings.current, ...updates };
+    clearTimeout(saveSettingsTimer.current);
+    saveSettingsTimer.current = setTimeout(async () => {
+      const body = pendingSettings.current;
+      pendingSettings.current = {};
+      try {
+        await fetch("/api/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      } catch (error) {
+        console.error("Error saving settings:", error);
+      }
+    }, 400);
   };
 
   // Returns true when the gift was saved, so the caller can close its form
@@ -287,7 +325,10 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className={`${fontVars} font-body min-h-screen relative overflow-hidden bg-night text-snow`}>
+    <div
+      className={`${fontVars} font-body min-h-screen relative overflow-hidden bg-night text-snow`}
+      style={{ "--card-blur": `${settings.cardBlur}px` } as React.CSSProperties}
+    >
       {/* Night sky with a snowy ridge along the bottom */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
@@ -404,6 +445,15 @@ export default function DashboardPage() {
                   <span className="text-xs text-ink/60">
                     {language === "en" ? "English" : "Norsk"}
                   </span>
+                </button>
+                <button
+                  onClick={() => {
+                    setSettingsOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-3 text-sm hover:bg-frost/25"
+                >
+                  {t("settings.title")}
                 </button>
                 <div className="border-t border-ink/10"></div>
                 <button
@@ -566,6 +616,86 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {settingsOpen && (
+        <SettingsSheet
+          settings={settings}
+          t={t}
+          onChange={handleChangeSetting}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SettingsSheet({
+  settings,
+  t,
+  onChange,
+  onClose,
+}: {
+  settings: UserSettings;
+  t: Translate;
+  onChange: (updates: Partial<UserSettings>) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  const blur = SETTINGS_LIMITS.cardBlur;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      {/* Light scrim so the cards stay visible while previewing the change */}
+      <div className="absolute inset-0 bg-night/30" onClick={onClose} aria-hidden="true" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        className="relative w-full sm:max-w-md bg-night-soft border-t sm:border border-white/15 rounded-t-3xl sm:rounded-2xl px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl shadow-black/50"
+      >
+        <div className="sm:hidden mx-auto mb-4 h-1 w-10 rounded-full bg-white/25" aria-hidden="true" />
+        <div className="flex items-center justify-between mb-5">
+          <h2 id="settings-title" className="font-display font-semibold text-xl tracking-tight">
+            {t("settings.title")}
+          </h2>
+          <button
+            onClick={onClose}
+            className={`px-4 py-2 -mr-2 rounded-xl text-mint font-semibold hover:bg-white/10 min-h-[44px] ${focusRing}`}
+          >
+            {t("settings.close")}
+          </button>
+        </div>
+
+        <label htmlFor="card-blur" className="block font-medium mb-1">
+          {t("settings.cardBlur")}
+        </label>
+        <input
+          id="card-blur"
+          type="range"
+          min={blur.min}
+          max={blur.max}
+          step={1}
+          value={settings.cardBlur}
+          onChange={(e) => onChange({ cardBlur: Number(e.target.value) })}
+          className="w-full h-11 accent-candle cursor-pointer"
+        />
+        <div className="flex justify-between text-sm text-frost -mt-1">
+          <span>{t("settings.none")}</span>
+          <span>{t("settings.strong")}</span>
+        </div>
+        <button
+          onClick={() => onChange({ cardBlur: blur.default })}
+          disabled={settings.cardBlur === blur.default}
+          className={`mt-4 text-sm text-frost hover:text-snow underline underline-offset-4 disabled:opacity-40 disabled:no-underline min-h-[44px] ${focusRing}`}
+        >
+          {t("settings.reset")}
+        </button>
+      </div>
     </div>
   );
 }
@@ -639,7 +769,7 @@ function PersonCard({ person, listType, isFirst, isLast, t, onSaveGift, onDelete
   return (
     <article
       id={`person-${person.id}`}
-      className={`scroll-mt-6 relative bg-night-soft/50 backdrop-blur-lg border border-white/15 text-snow rounded-2xl pl-4 pr-3 sm:pl-6 sm:pr-4 py-4 sm:py-5 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.5)] border-l-[6px] ${
+      className={`scroll-mt-6 relative bg-night-soft/50 [-webkit-backdrop-filter:blur(var(--card-blur))] [backdrop-filter:blur(var(--card-blur))] border border-white/15 text-snow rounded-2xl pl-4 pr-3 sm:pl-6 sm:pr-4 py-4 sm:py-5 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.5)] border-l-[6px] ${
         done ? "border-l-spruce" : hasGifts ? "border-l-candle" : "border-l-berry"
       }`}
     >
