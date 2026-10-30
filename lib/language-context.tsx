@@ -15,7 +15,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 const translations: Record<Language, Record<string, string>> = {
   en: {
     // Dashboard
-    "dashboard.title": "Christmas Gifter Dashboard",
+    "dashboard.title": "Christmas Gifter",
     "dashboard.totalPeople": "Total People",
     "dashboard.totalGifts": "Total Gifts",
     "dashboard.stillNeeded": "Still Needed",
@@ -45,6 +45,13 @@ const translations: Record<Language, Record<string, string>> = {
     "dashboard.done": "Done",
     "dashboard.purchased": "Purchased",
     "dashboard.wrapped": "Wrapped",
+    "dashboard.untilChristmas": "until Christmas",
+    "dashboard.giftCount": "gifts",
+    "dashboard.wrappedCount": "wrapped",
+    "dashboard.moveUp": "Move up",
+    "dashboard.moveDown": "Move down",
+    "dashboard.removePerson": "Remove person",
+    "dashboard.giftPlaceholder": "What are you giving them?",
   },
   no: {
     // Dashboard
@@ -78,6 +85,13 @@ const translations: Record<Language, Record<string, string>> = {
     "dashboard.done": "Ferdig",
     "dashboard.purchased": "Kjøpt",
     "dashboard.wrapped": "Pakket",
+    "dashboard.untilChristmas": "til jul",
+    "dashboard.giftCount": "gaver",
+    "dashboard.wrappedCount": "pakket",
+    "dashboard.moveUp": "Flytt opp",
+    "dashboard.moveDown": "Flytt ned",
+    "dashboard.removePerson": "Fjern person",
+    "dashboard.giftPlaceholder": "Hva skal du gi dem?",
   },
 };
 

@@ -3,7 +3,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import { useLanguage } from "@/lib/language-context";
+
+const displayFont = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-display" });
+const bodyFont = Figtree({ subsets: ["latin"], variable: "--font-body" });
 
 interface Gift {
   id: string;
@@ -18,15 +22,21 @@ interface Person {
   gifts: Gift[];
 }
 
+type Translate = (key: string) => string;
+type ListType = "withGifts" | "withoutGifts";
+
+const isGiftDone = (gift: Gift) => gift.purchased && gift.giftWrapped;
+const isPersonDone = (person: Person) => person.gifts.length > 0 && person.gifts.every(isGiftDone);
+
+const focusRing =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-candle";
+
 export default function DashboardPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const { language, setLanguage, t } = useLanguage();
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingGift, setEditingGift] = useState<string | null>(null);
-  const [addingGift, setAddingGift] = useState<string | null>(null);
-  const [giftInputs, setGiftInputs] = useState<Record<string, string>>({});
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [addingPerson, setAddingPerson] = useState(false);
@@ -110,9 +120,6 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json();
         setPeople(data.people);
-        // Initialize gift inputs
-        const inputs: Record<string, string> = {};
-        setGiftInputs(inputs);
       }
     } catch (error) {
       console.error("Error fetching people:", error);
@@ -121,29 +128,27 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSaveGift = async (personId: string, giftId?: string) => {
-    const description = giftInputs[personId] || "";
-
+  // Returns true when the gift was saved, so the caller can close its form
+  const handleSaveGift = async (personId: string, description: string, giftId?: string) => {
     if (!description.trim()) {
-      return;
+      return false;
     }
 
     try {
       const response = await fetch("/api/gifts", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personId, description, giftId }),
+        body: JSON.stringify({ personId, description: description.trim(), giftId }),
       });
 
       if (response.ok) {
         await fetchPeople();
-        setEditingGift(null);
-        setAddingGift(null);
-        setGiftInputs({ ...giftInputs, [personId]: "" });
+        return true;
       }
     } catch (error) {
       console.error("Error saving gift:", error);
     }
+    return false;
   };
 
   const handleDeleteGift = async (giftId: string) => {
@@ -194,13 +199,13 @@ export default function DashboardPage() {
     }
   };
 
-  const handleMovePerson = async (personId: string, direction: "up" | "down", listType: "withGifts" | "withoutGifts") => {
+  const handleMovePerson = async (personId: string, direction: "up" | "down", listType: ListType) => {
     const peopleWithGifts = people.filter((p) => p.gifts && p.gifts.length > 0);
     const peopleWithoutGifts = people.filter(
       (p) => !p.gifts || p.gifts.length === 0
     );
     const currentList = listType === "withGifts" ? peopleWithGifts : peopleWithoutGifts;
-    
+
     const currentIndex = currentList.findIndex((p) => p.id === personId);
     if (currentIndex === -1) return;
 
@@ -251,10 +256,12 @@ export default function DashboardPage() {
     }
   };
 
+  const fontVars = `${displayFont.variable} ${bodyFont.variable}`;
+
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
+      <div className={`${fontVars} min-h-screen flex items-center justify-center bg-night font-body text-frost`}>
+        <GiftBox state="idea" className="w-10 h-10 motion-safe:animate-pulse" />
       </div>
     );
   }
@@ -268,21 +275,39 @@ export default function DashboardPage() {
     (p) => !p.gifts || p.gifts.length === 0
   );
   const totalGifts = people.reduce((sum, p) => sum + (p.gifts?.length || 0), 0);
+  const wrappedGifts = people.reduce((sum, p) => sum + p.gifts.filter(isGiftDone).length, 0);
+
+  const sharedCardProps = {
+    t,
+    onSaveGift: handleSaveGift,
+    onDeleteGift: handleDeleteGift,
+    onToggleGift: handleToggleGiftStatus,
+    onMove: handleMovePerson,
+    onDeletePerson: handleDeletePerson,
+  };
 
   return (
-    <div
-      className="min-h-screen py-4 sm:py-8 md:py-12 px-2 sm:px-4 relative overflow-hidden"
-      style={{
-        backgroundImage: 'url("https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1920&q=80")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'fixed',
-      }}
-    >
-      <div className="fixed inset-0 bg-black/40 dark:bg-black/60 pointer-events-none z-0"></div>
+    <div className={`${fontVars} font-body min-h-screen relative overflow-hidden bg-night text-snow`}>
+      {/* Night sky with a snowy ridge along the bottom */}
+      <div
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 50% at 50% 0%, #1E3554 0%, transparent 70%), linear-gradient(#0E1A2B, #0B1524)",
+        }}
+      />
+      <svg
+        className="fixed bottom-0 left-0 w-full h-32 sm:h-44 pointer-events-none z-0"
+        viewBox="0 0 1440 200"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="M0 120 C 240 60 420 150 720 100 S 1200 50 1440 110 V200 H0Z" fill="#1A2D45" />
+        <path d="M0 160 C 300 110 520 180 860 140 S 1300 120 1440 150 V200 H0Z" fill="#22395A" />
+      </svg>
+
       {/* Snowing Animation */}
-      <div className="fixed inset-0 pointer-events-none z-[1] overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none z-[1] overflow-hidden motion-reduce:hidden">
         {snowfallData.map((snowflake) => (
           <div key={snowflake.id}>
             <style dangerouslySetInnerHTML={{__html: `
@@ -309,6 +334,7 @@ export default function DashboardPage() {
                 left: `${snowflake.left}%`,
                 animation: `${snowflake.animationName} ${snowflake.duration}s linear ${snowflake.delay}s infinite`,
                 fontSize: `${snowflake.size}em`,
+                opacity: 0.7,
               }}
             >
               ❄
@@ -316,751 +342,525 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
-      <div className="relative z-10">
-        <div className="max-w-4xl mx-auto px-2 sm:px-4">
-        {/* Christmas Countdown */}
-        <div 
-          className="rounded-lg shadow-xl p-4 sm:p-6 mb-4 sm:mb-6 text-white relative overflow-hidden"
-          style={{
-            backgroundImage: 'url("https://images.unsplash.com/photo-1482517967863-00e15c9b44be?w=1200&q=80")',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }}
-        >
-          <div className="absolute inset-0 bg-black/60 dark:bg-black/70"></div>
-          <div className="text-center relative z-10">
-            <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">🎄 {t("dashboard.countdownTitle") || "Time Until Christmas"} 🎄</h2>
-            <div className="flex items-center justify-center gap-2 sm:gap-4 md:gap-8">
-              <div className="flex flex-col items-center">
-                <div className="text-3xl sm:text-4xl md:text-5xl font-bold">{timeUntilChristmas.days}</div>
-                <div className="text-xs sm:text-sm md:text-base opacity-90">{t("dashboard.days") || "Days"}</div>
-              </div>
-              <div className="text-2xl sm:text-3xl md:text-4xl font-bold">:</div>
-              <div className="flex flex-col items-center">
-                <div className="text-3xl sm:text-4xl md:text-5xl font-bold">{timeUntilChristmas.hours.toString().padStart(2, '0')}</div>
-                <div className="text-xs sm:text-sm md:text-base opacity-90">{t("dashboard.hours") || "Hours"}</div>
-              </div>
-              <div className="text-2xl sm:text-3xl md:text-4xl font-bold">:</div>
-              <div className="flex flex-col items-center">
-                <div className="text-3xl sm:text-4xl md:text-5xl font-bold">{timeUntilChristmas.minutes.toString().padStart(2, '0')}</div>
-                <div className="text-xs sm:text-sm md:text-base opacity-90">{t("dashboard.minutes") || "Minutes"}</div>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 border border-white/30 dark:border-gray-700/30">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">
-              🎄 {t("dashboard.title")}
-            </h1>
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition duration-200 text-sm sm:text-base min-h-[44px]"
+      <div className="relative z-10 max-w-3xl mx-auto px-4 pt-5 sm:pt-8 pb-40 sm:pb-52">
+        {/* Top bar */}
+        <header className="flex items-center justify-between gap-4 mb-10 sm:mb-14">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <GiftBox state="done" className="w-7 h-7 shrink-0" />
+            <span className="font-display font-semibold text-lg tracking-tight truncate">{t("dashboard.title")}</span>
+          </div>
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              aria-expanded={dropdownOpen}
+              aria-label={session?.user?.username}
+              className={`shrink-0 flex items-center gap-2 pl-1.5 pr-2.5 sm:pr-3 py-1.5 rounded-full bg-night-soft/80 hover:bg-night-soft border border-night-line text-sm min-h-[44px] transition-colors ${focusRing}`}
+            >
+              <span className="w-8 h-8 rounded-full bg-spruce grid place-items-center font-display font-semibold uppercase">
+                {session?.user?.username?.charAt(0)}
+              </span>
+              <span className="hidden sm:inline font-medium max-w-[10rem] truncate">{session?.user?.username}</span>
+              <svg
+                className={`w-4 h-4 text-frost transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <span className="text-gray-800 dark:text-white font-medium">
-                  {session?.user?.username}
-                </span>
-                <svg
-                  className={`w-4 h-4 transition-transform ${
-                    dropdownOpen ? "rotate-180" : ""
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-              {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-lg shadow-lg border border-white/30 dark:border-gray-700/30 z-50">
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setLanguage(language === "en" ? "no" : "en");
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between"
-                    >
-                      <span className="flex items-center gap-2">
-                        {language === "en" ? (
-                          <svg className="w-6 h-4" viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg">
-                            <rect width="60" height="30" fill="#012169"/>
-                            <path d="M0,0 L60,30 M60,0 L0,30" stroke="#FFF" strokeWidth="3"/>
-                            <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" strokeWidth="2"/>
-                            <line x1="30" y1="0" x2="30" y2="30" stroke="#FFF" strokeWidth="6"/>
-                            <line x1="0" y1="15" x2="60" y2="15" stroke="#FFF" strokeWidth="6"/>
-                            <line x1="30" y1="0" x2="30" y2="30" stroke="#C8102E" strokeWidth="4"/>
-                            <line x1="0" y1="15" x2="60" y2="15" stroke="#C8102E" strokeWidth="4"/>
-                          </svg>
-                        ) : (
-                          <svg className="w-6 h-4" viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg">
-                            <rect width="60" height="40" fill="#BA0C2F"/>
-                            <rect x="18" y="0" width="6" height="40" fill="#00205B"/>
-                            <rect x="0" y="17" width="60" height="6" fill="#00205B"/>
-                            <rect x="20" y="0" width="2" height="40" fill="#FFF"/>
-                            <rect x="0" y="19" width="60" height="2" fill="#FFF"/>
-                          </svg>
-                        )}
-                        {t("dashboard.language")}
-                      </span>
-                      <span className="text-xs">
-                        {language === "en" ? "English" : "Norwegian"}
-                      </span>
-                    </button>
-                    <div className="border-t border-gray-200 dark:border-gray-700"></div>
-                    <button
-                      onClick={() => signOut({ callbackUrl: "/login" })}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      {t("dashboard.logout")}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl leading-none">👤</span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {t("dashboard.totalPeople")}
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400 mb-2">
-                {people.length}
-              </div>
-            </div>
-            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl leading-none">🎁</span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {t("dashboard.totalGifts")}
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-2">
-                {totalGifts}
-              </div>
-            </div>
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl leading-none">⏳</span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {t("dashboard.stillNeeded")}
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mb-2">
-                {peopleWithoutGifts.length}
-              </div>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          {people.length > 0 && (
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-4 sm:p-6 mb-4 sm:mb-6 border border-white/30 dark:border-gray-700/30">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-white">
-                  {t("dashboard.giftProgress") || "Gift Progress"}
-                </h3>
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  {peopleWithGifts.length} / {people.length} {t("dashboard.people") || "people"}
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden relative">
-                <div
-                  className="bg-gradient-to-r from-green-500 to-green-600 h-4 rounded-full transition-all duration-1000 ease-out flex items-center justify-end pr-2 relative overflow-hidden"
-                  style={{
-                    width: `${people.length > 0 ? (peopleWithGifts.length / people.length) * 100 : 0}%`,
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-snow text-ink rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-50">
+                <button
+                  onClick={() => {
+                    setLanguage(language === "en" ? "no" : "en");
+                    setDropdownOpen(false);
                   }}
+                  className="w-full text-left px-4 py-3 text-sm hover:bg-frost/25 flex items-center justify-between"
                 >
-                  {/* Shimmer animation */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
-                  {peopleWithGifts.length > 0 && peopleWithGifts.length === people.length && (
-                    <span className="text-xs font-bold text-white relative z-10 animate-bounce">✓</span>
-                  )}
-                </div>
-              </div>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                {peopleWithoutGifts.length === 0 ? (
-                  <span className="text-green-600 dark:text-green-400 font-semibold">
-                    🎉 {t("dashboard.allGiftsFound") || "All gifts found! You're ready for Christmas!"}
+                  <span className="flex items-center gap-2">
+                    {language === "en" ? (
+                      <svg className="w-6 h-4 rounded-sm" viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="60" height="30" fill="#012169"/>
+                        <path d="M0,0 L60,30 M60,0 L0,30" stroke="#FFF" strokeWidth="3"/>
+                        <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" strokeWidth="2"/>
+                        <line x1="30" y1="0" x2="30" y2="30" stroke="#FFF" strokeWidth="6"/>
+                        <line x1="0" y1="15" x2="60" y2="15" stroke="#FFF" strokeWidth="6"/>
+                        <line x1="30" y1="0" x2="30" y2="30" stroke="#C8102E" strokeWidth="4"/>
+                        <line x1="0" y1="15" x2="60" y2="15" stroke="#C8102E" strokeWidth="4"/>
+                      </svg>
+                    ) : (
+                      <svg className="w-6 h-4 rounded-sm" viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="60" height="40" fill="#BA0C2F"/>
+                        <rect x="18" y="0" width="6" height="40" fill="#00205B"/>
+                        <rect x="0" y="17" width="60" height="6" fill="#00205B"/>
+                        <rect x="20" y="0" width="2" height="40" fill="#FFF"/>
+                        <rect x="0" y="19" width="60" height="2" fill="#FFF"/>
+                      </svg>
+                    )}
+                    {t("dashboard.language")}
                   </span>
-                ) : (
-                  <span>
-                    {peopleWithoutGifts.length} {t("dashboard.peopleLeft") || "people"} {t("dashboard.stillNeedGiftsLower") || "still need gifts"}
+                  <span className="text-xs text-ink/60">
+                    {language === "en" ? "English" : "Norsk"}
                   </span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-4 sm:space-y-6">
-          {peopleWithGifts.length > 0 && (
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-4 sm:p-6 md:p-8 border border-white/30 dark:border-gray-700/30">
-              <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-gray-800 dark:text-white">
-                ✅ {t("dashboard.giftsFound")}
-              </h2>
-              <div className="space-y-3 sm:space-y-4">
-                {peopleWithGifts.map((person, index) => (
-                  <div
-                    key={person.id}
-                    className="p-3 sm:p-4 rounded-lg transition-all duration-200 hover:bg-white/30 dark:hover:bg-gray-800/30 hover:backdrop-blur-sm hover:shadow-lg"
-                  >
-                    <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="flex flex-col gap-1 pt-1">
-                        <button
-                          onClick={() => handleMovePerson(person.id, "up", "withGifts")}
-                          disabled={index === 0}
-                          className="p-2 sm:p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          aria-label="Move up"
-                        >
-                          <svg
-                            className="w-5 h-5 sm:w-6 sm:h-6"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 15l7-7 7 7"
-                            />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleMovePerson(person.id, "down", "withGifts")}
-                          disabled={index === peopleWithGifts.length - 1}
-                          className="p-2 sm:p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          aria-label="Move down"
-                        >
-                          <svg
-                            className="w-5 h-5 sm:w-6 sm:h-6"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0 mb-2">
-                          <h3 className="font-semibold text-base sm:text-lg text-gray-800 dark:text-white">
-                            {person.name}
-                          </h3>
-                          <button
-                            onClick={() => {
-                              setAddingGift(person.id);
-                              setGiftInputs({
-                                ...giftInputs,
-                                [person.id]: "",
-                              });
-                            }}
-                            className="px-3 sm:px-4 py-2 text-sm sm:text-base bg-green-600 hover:bg-green-700 text-white rounded transition duration-200 min-h-[44px] whitespace-nowrap"
-                          >
-                            + {t("dashboard.addGift")}
-                          </button>
-                        </div>
-                        <div className="space-y-2">
-                          {person.gifts.map((gift) => (
-                            <div
-                              key={gift.id}
-                              className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-md border ${
-                                gift.purchased && gift.giftWrapped
-                                  ? "border-green-500 dark:border-green-400"
-                                  : "border-white/40 dark:border-gray-700/40"
-                              }`}
-                            >
-                              {editingGift === gift.id ? (
-                                <div className="flex-1 flex flex-col sm:flex-row gap-2">
-                              <input
-                                type="text"
-                                value={giftInputs[gift.id] || gift.description}
-                                onChange={(e) =>
-                                  setGiftInputs({
-                                    ...giftInputs,
-                                    [gift.id]: e.target.value,
-                                  })
-                                }
-                                className="flex-1 px-3 py-3 sm:py-2 text-base border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white focus:outline-none min-h-[44px]"
-                                placeholder="Gift description"
-                              />
-                                <div className="flex gap-2">
-                                <button
-                                onClick={() => handleSaveGift(person.id, gift.id)}
-                                className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm sm:text-base transition duration-200 min-h-[44px]"
-                              >
-                                {t("dashboard.save")}
-                              </button>
-                                <button
-                                onClick={() => {
-                                  setEditingGift(null);
-                                  setGiftInputs({
-                                    ...giftInputs,
-                                    [gift.id]: gift.description,
-                                  });
-                                }}
-                                className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded text-sm sm:text-base transition duration-200 min-h-[44px]"
-                              >
-                                {t("dashboard.cancel")}
-                              </button>
-                                </div>
-                                </div>
-                          ) : (
-                            <>
-                              <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
-                                <p className={`text-sm sm:text-base text-gray-700 dark:text-gray-300 break-words ${
-                                  gift.purchased && gift.giftWrapped ? "line-through opacity-60" : ""
-                                }`}>
-                                  {gift.description}
-                                </p>
-                                {gift.purchased && gift.giftWrapped && (
-                                  <span className="text-green-600 dark:text-green-400 text-sm font-semibold whitespace-nowrap">
-                                    ✓ {t("dashboard.done")}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-                                <div className="flex items-center gap-3 sm:gap-2">
-                                  <label className="flex items-center gap-2 cursor-pointer min-h-[44px]">
-                                    <input
-                                      type="checkbox"
-                                      checked={gift.purchased}
-                                      onChange={(e) => handleToggleGiftStatus(gift.id, "purchased", e.target.checked)}
-                                      className="w-5 h-5 sm:w-4 sm:h-4 text-green-600 border-gray-300 rounded focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700"
-                                    />
-                                    <span className="text-sm sm:text-xs text-gray-600 dark:text-gray-400">{t("dashboard.purchased")}</span>
-                                  </label>
-                                  <label className="flex items-center gap-2 cursor-pointer min-h-[44px]">
-                                    <input
-                                      type="checkbox"
-                                      checked={gift.giftWrapped}
-                                      onChange={(e) => handleToggleGiftStatus(gift.id, "giftWrapped", e.target.checked)}
-                                      className="w-5 h-5 sm:w-4 sm:h-4 text-green-600 border-gray-300 rounded focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700"
-                                    />
-                                    <span className="text-sm sm:text-xs text-gray-600 dark:text-gray-400">{t("dashboard.wrapped")}</span>
-                                  </label>
-                                </div>
-                                <div className="flex gap-2 w-full sm:w-auto">
-                                  <button
-                                    onClick={() => {
-                                      setEditingGift(gift.id);
-                                      setGiftInputs({
-                                        ...giftInputs,
-                                        [gift.id]: gift.description,
-                                      });
-                                    }}
-                                    className="flex-1 sm:flex-none px-3 sm:px-2 py-2 sm:py-1 text-sm sm:text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition duration-200 min-h-[44px] sm:min-h-0"
-                                  >
-                                    {t("dashboard.edit")}
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteGift(gift.id)}
-                                    className="flex-1 sm:flex-none px-3 sm:px-2 py-2 sm:py-1 text-sm sm:text-xs bg-red-600 hover:bg-red-700 text-white rounded transition duration-200 min-h-[44px] sm:min-h-0"
-                                  >
-                                    {t("dashboard.delete")}
-                                  </button>
-                                </div>
-                              </div>
-                            </>
-                          )}
-                            </div>
-                          ))}
-                        </div>
-                        {addingGift === person.id && (
-                          <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                            <input
-                              type="text"
-                              value={giftInputs[person.id] || ""}
-                              onChange={(e) =>
-                                setGiftInputs({
-                                  ...giftInputs,
-                                  [person.id]: e.target.value,
-                                })
-                              }
-                              className="flex-1 px-3 py-3 sm:py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white focus:outline-none min-h-[44px]"
-                              placeholder="What are you giving them?"
-                              onKeyPress={(e) => {
-                                if (e.key === "Enter") {
-                                  handleSaveGift(person.id);
-                                }
-                              }}
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleSaveGift(person.id)}
-                                className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-base min-h-[44px]"
-                              >
-                                {t("dashboard.addGift")}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setAddingGift(null);
-                                  setGiftInputs({
-                                    ...giftInputs,
-                                    [person.id]: "",
-                                  });
-                                }}
-                                className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition duration-200 text-base min-h-[44px]"
-                              >
-                                {t("dashboard.cancel")}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {peopleWithoutGifts.length > 0 && (
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-4 sm:p-6 md:p-8 border border-white/30 dark:border-gray-700/30">
-              <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-gray-800 dark:text-white">
-                🎁 {t("dashboard.stillNeedGifts")}
-              </h2>
-              <div className="space-y-3 sm:space-y-4">
-                {peopleWithoutGifts.map((person, index) => (
-                  <div
-                    key={person.id}
-                    className="p-3 sm:p-4 rounded-lg transition-all duration-200 hover:bg-white/30 dark:hover:bg-gray-800/30 hover:backdrop-blur-sm hover:shadow-lg"
-                  >
-                    <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="flex flex-col gap-1 pt-1">
-                        <button
-                          onClick={() => handleMovePerson(person.id, "up", "withoutGifts")}
-                          disabled={index === 0}
-                          className="p-2 sm:p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          aria-label="Move up"
-                        >
-                          <svg
-                            className="w-5 h-5 sm:w-6 sm:h-6"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 15l7-7 7 7"
-                            />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleMovePerson(person.id, "down", "withoutGifts")}
-                          disabled={index === peopleWithoutGifts.length - 1}
-                          className="p-2 sm:p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          aria-label="Move down"
-                        >
-                          <svg
-                            className="w-5 h-5 sm:w-6 sm:h-6"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0 mb-2">
-                          <h3 className="font-semibold text-base sm:text-lg text-gray-800 dark:text-white">
-                            {person.name}
-                          </h3>
-                          <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setAddingGift(person.id);
-                            setGiftInputs({
-                              ...giftInputs,
-                              [person.id]: "",
-                            });
-                          }}
-                          className="px-3 sm:px-4 py-2 text-sm sm:text-base bg-yellow-600 hover:bg-yellow-700 text-white rounded transition duration-200 flex items-center justify-center min-h-[44px] whitespace-nowrap"
-                        >
-                          + {t("dashboard.addGift")}
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to remove ${person.name}?`)) {
-                              handleDeletePerson(person.id);
-                            }
-                          }}
-                          className="p-2.5 sm:p-2 sm:px-3 sm:py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition duration-200 flex items-center justify-center min-h-[44px] min-w-[44px] sm:min-w-0"
-                          title="Remove person"
-                        >
-                          <svg
-                            className="w-5 h-5 sm:w-4 sm:h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        </button>
-                          </div>
-                        </div>
-                        {person.gifts && person.gifts.length > 0 && (
-                          <div className="space-y-2 mb-3">
-                            {person.gifts.map((gift) => (
-                              <div
-                                key={gift.id}
-                                className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-md border ${
-                                  gift.purchased && gift.giftWrapped
-                                    ? "border-green-500 dark:border-green-400"
-                                    : "border-white/40 dark:border-gray-700/40"
-                                }`}
-                              >
-                                {editingGift === gift.id ? (
-                                  <div className="flex-1 flex flex-col sm:flex-row gap-2">
-                                    <input
-                                      type="text"
-                                      value={giftInputs[gift.id] || gift.description}
-                                      onChange={(e) =>
-                                        setGiftInputs({
-                                          ...giftInputs,
-                                          [gift.id]: e.target.value,
-                                        })
-                                      }
-                                      className="flex-1 px-3 py-3 sm:py-2 text-base border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-yellow-500 focus:border-transparent dark:bg-gray-700 dark:text-white focus:outline-none min-h-[44px]"
-                                      placeholder="Gift description"
-                                    />
-                                    <div className="flex gap-2">
-                                      <button
-                                        onClick={() => handleSaveGift(person.id, gift.id)}
-                                        className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-sm sm:text-base transition duration-200 min-h-[44px]"
-                                      >
-                                        {t("dashboard.save")}
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          setEditingGift(null);
-                                          setGiftInputs({
-                                            ...giftInputs,
-                                            [gift.id]: gift.description,
-                                          });
-                                        }}
-                                        className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded text-sm sm:text-base transition duration-200 min-h-[44px]"
-                                      >
-                                        {t("dashboard.cancel")}
-                                      </button>
-                                    </div>
-                                  </div>
-                            ) : (
-                              <>
-                                <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
-                                  <p className={`text-sm sm:text-base text-gray-700 dark:text-gray-300 break-words ${
-                                    gift.purchased && gift.giftWrapped ? "line-through opacity-60" : ""
-                                  }`}>
-                                    {gift.description}
-                                  </p>
-                                  {gift.purchased && gift.giftWrapped && (
-                                    <span className="text-green-600 dark:text-green-400 text-sm font-semibold whitespace-nowrap">
-                                      ✓ {t("dashboard.done")}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-                                  <div className="flex items-center gap-3 sm:gap-2">
-                                    <label className="flex items-center gap-2 cursor-pointer min-h-[44px]">
-                                      <input
-                                        type="checkbox"
-                                        checked={gift.purchased}
-                                        onChange={(e) => handleToggleGiftStatus(gift.id, "purchased", e.target.checked)}
-                                        className="w-5 h-5 sm:w-4 sm:h-4 text-green-600 border-gray-300 rounded focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700"
-                                      />
-                                      <span className="text-sm sm:text-xs text-gray-600 dark:text-gray-400">{t("dashboard.purchased")}</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer min-h-[44px]">
-                                      <input
-                                        type="checkbox"
-                                        checked={gift.giftWrapped}
-                                        onChange={(e) => handleToggleGiftStatus(gift.id, "giftWrapped", e.target.checked)}
-                                        className="w-5 h-5 sm:w-4 sm:h-4 text-green-600 border-gray-300 rounded focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700"
-                                      />
-                                      <span className="text-sm sm:text-xs text-gray-600 dark:text-gray-400">{t("dashboard.wrapped")}</span>
-                                    </label>
-                                  </div>
-                                  <div className="flex gap-2 w-full sm:w-auto">
-                                    <button
-                                      onClick={() => {
-                                        setEditingGift(gift.id);
-                                        setGiftInputs({
-                                          ...giftInputs,
-                                          [gift.id]: gift.description,
-                                        });
-                                      }}
-                                      className="flex-1 sm:flex-none px-3 sm:px-2 py-2 sm:py-1 text-sm sm:text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition duration-200 min-h-[44px] sm:min-h-0"
-                                    >
-                                      {t("dashboard.edit")}
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteGift(gift.id)}
-                                      className="flex-1 sm:flex-none px-3 sm:px-2 py-2 sm:py-1 text-sm sm:text-xs bg-red-600 hover:bg-red-700 text-white rounded transition duration-200 min-h-[44px] sm:min-h-0"
-                                    >
-                                      {t("dashboard.delete")}
-                                    </button>
-                                  </div>
-                                </div>
-                              </>
-                            )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {(!person.gifts || person.gifts.length === 0) && (
-                          <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 italic mb-3">
-                            {t("dashboard.noGiftPlanned")}
-                          </p>
-                        )}
-                        {addingGift === person.id && (
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            <input
-                              type="text"
-                              value={giftInputs[person.id] || ""}
-                              onChange={(e) =>
-                                setGiftInputs({
-                                  ...giftInputs,
-                                  [person.id]: e.target.value,
-                                })
-                              }
-                              className="flex-1 px-3 py-3 sm:py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent dark:bg-gray-700 dark:text-white focus:outline-none min-h-[44px]"
-                              placeholder="What are you giving them?"
-                              onKeyPress={(e) => {
-                                if (e.key === "Enter") {
-                                  handleSaveGift(person.id);
-                                }
-                              }}
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleSaveGift(person.id)}
-                                className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition duration-200 text-base min-h-[44px]"
-                              >
-                                {t("dashboard.addGift")}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setAddingGift(null);
-                                  setGiftInputs({
-                                    ...giftInputs,
-                                    [person.id]: "",
-                                  });
-                                }}
-                                className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition duration-200 text-base min-h-[44px]"
-                              >
-                                {t("dashboard.cancel")}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {people.length === 0 && (
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-4 sm:p-6 md:p-8 text-center border border-white/30 dark:border-gray-700/30">
-              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-                {t("dashboard.noPeople")}
-              </p>
-            </div>
-          )}
-
-          <div>
-            {!addingPerson ? (
-              <button
-                onClick={() => setAddingPerson(true)}
-                className="w-full px-6 py-3 bg-white/70 dark:bg-gray-800/70 backdrop-blur-md hover:bg-white/80 dark:hover:bg-gray-800/80 text-gray-800 dark:text-white font-semibold rounded-lg shadow-xl border-2 border-dashed border-gray-300/50 dark:border-gray-600/50 hover:border-gray-400 dark:hover:border-gray-500 transition duration-200 flex items-center justify-center gap-2"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                </button>
+                <div className="border-t border-ink/10"></div>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="w-full text-left px-4 py-3 text-sm text-berry font-medium hover:bg-frost/25"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                {t("dashboard.addPerson") || "Add New Person"}
-              </button>
-            ) : (
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-4 sm:p-6 border-2 border-gray-200/50 dark:border-gray-700/50">
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <input
-                        type="text"
-                        value={newPersonName}
-                        onChange={(e) => setNewPersonName(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === "Enter") {
-                            handleAddPerson();
-                          }
-                        }}
-                        placeholder={t("dashboard.personNamePlaceholder") || "Enter person's name"}
-                        className="flex-1 px-4 py-3 sm:py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none min-h-[44px]"
-                        autoFocus
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setAddingPerson(false);
-                            setNewPersonName("");
-                          }}
-                          className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition duration-200 font-semibold text-base min-h-[44px]"
-                        >
-                          {t("dashboard.cancel")}
-                        </button>
-                        <button
-                          onClick={handleAddPerson}
-                          className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 font-semibold text-base min-h-[44px]"
-                        >
-                          {t("dashboard.add") || "Add"}
-                        </button>
-                      </div>
-                    </div>
+                  {t("dashboard.logout")}
+                </button>
               </div>
             )}
           </div>
-        </div>
+        </header>
+
+        {/* Countdown + gift pile */}
+        <section className="mb-14 sm:mb-16">
+          <p
+            className="font-display font-bold tracking-tight leading-[0.95] text-[clamp(2.5rem,9vw,4.75rem)] tabular-nums"
+            aria-label={`${timeUntilChristmas.days} ${t("dashboard.days")}, ${timeUntilChristmas.hours} ${t("dashboard.hours")}, ${timeUntilChristmas.minutes} ${t("dashboard.minutes")} ${t("dashboard.untilChristmas")}`}
+          >
+            {timeUntilChristmas.days}
+            <span className="font-medium text-frost text-[0.45em] ml-2 mr-4">{t("dashboard.days").toLowerCase()}</span>
+            <span className="whitespace-nowrap">
+              {timeUntilChristmas.hours.toString().padStart(2, "0")}
+              <span className="font-medium text-frost text-[0.45em] ml-2 mr-4">{t("dashboard.hours").toLowerCase()}</span>
+            </span>
+            <span className="whitespace-nowrap">
+              {timeUntilChristmas.minutes.toString().padStart(2, "0")}
+              <span className="font-medium text-frost text-[0.45em] ml-2">{t("dashboard.minutes").toLowerCase()}</span>
+            </span>
+          </p>
+          <p className="font-display text-xl sm:text-2xl text-frost mt-3">{t("dashboard.untilChristmas")}</p>
+
+          {people.length > 0 && (
+            <div className="mt-10">
+              <ul className="flex flex-wrap items-end gap-x-3 gap-y-4">
+                {people.map((person) => {
+                  const state = isPersonDone(person) ? "done" : person.gifts.length > 0 ? "idea" : "empty";
+                  return (
+                    <li key={person.id}>
+                      <a
+                        href={`#person-${person.id}`}
+                        title={person.name}
+                        className={`group flex flex-col items-center gap-1.5 w-14 rounded-lg ${focusRing}`}
+                      >
+                        <GiftBox state={state} className="w-11 h-11 transition-transform group-hover:-translate-y-1" />
+                        <span className="text-xs text-frost group-hover:text-snow truncate max-w-full">{person.name}</span>
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <div className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-sm text-frost">
+                <span>
+                  <strong className="font-display text-snow text-base">{peopleWithGifts.length}/{people.length}</strong>{" "}
+                  {t("dashboard.people")}
+                </span>
+                <span>
+                  <strong className="font-display text-snow text-base">{totalGifts}</strong> {t("dashboard.giftCount")}
+                </span>
+                <span>
+                  <strong className="font-display text-snow text-base">{wrappedGifts}</strong> {t("dashboard.wrappedCount")}
+                </span>
+              </div>
+              <p className="mt-2 text-sm">
+                {peopleWithoutGifts.length === 0 ? (
+                  <span className="text-candle font-medium">{t("dashboard.allGiftsFound")}</span>
+                ) : (
+                  <span className="text-frost">
+                    {peopleWithoutGifts.length} {t("dashboard.peopleLeft")} {t("dashboard.stillNeedGiftsLower")}
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+        </section>
+
+        <div className="space-y-12">
+          {peopleWithoutGifts.length > 0 && (
+            <PersonSection title={t("dashboard.stillNeedGifts")} count={peopleWithoutGifts.length}>
+              {peopleWithoutGifts.map((person, index) => (
+                <PersonCard
+                  key={person.id}
+                  person={person}
+                  listType="withoutGifts"
+                  isFirst={index === 0}
+                  isLast={index === peopleWithoutGifts.length - 1}
+                  {...sharedCardProps}
+                />
+              ))}
+            </PersonSection>
+          )}
+
+          {peopleWithGifts.length > 0 && (
+            <PersonSection title={t("dashboard.giftsFound")} count={peopleWithGifts.length}>
+              {peopleWithGifts.map((person, index) => (
+                <PersonCard
+                  key={person.id}
+                  person={person}
+                  listType="withGifts"
+                  isFirst={index === 0}
+                  isLast={index === peopleWithGifts.length - 1}
+                  {...sharedCardProps}
+                />
+              ))}
+            </PersonSection>
+          )}
+
+          {people.length === 0 && (
+            <p className="text-frost text-center py-8">{t("dashboard.noPeople")}</p>
+          )}
+
+          {!addingPerson ? (
+            <button
+              onClick={() => setAddingPerson(true)}
+              className={`w-full px-6 py-4 rounded-2xl border-2 border-dashed border-night-line hover:border-frost text-frost hover:text-snow font-semibold transition-colors flex items-center justify-center gap-2 ${focusRing}`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              {t("dashboard.addPerson")}
+            </button>
+          ) : (
+            <div className="rounded-2xl bg-night-soft border border-night-line p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={newPersonName}
+                  onChange={(e) => setNewPersonName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddPerson();
+                    if (e.key === "Escape") {
+                      setAddingPerson(false);
+                      setNewPersonName("");
+                    }
+                  }}
+                  placeholder={t("dashboard.personNamePlaceholder")}
+                  className="flex-1 px-4 py-2.5 text-base rounded-xl bg-night border border-night-line text-snow placeholder:text-frost/60 focus:outline-none focus:border-candle min-h-[44px]"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setAddingPerson(false);
+                      setNewPersonName("");
+                    }}
+                    className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-frost hover:text-snow hover:bg-night-line font-semibold min-h-[44px] transition-colors ${focusRing}`}
+                  >
+                    {t("dashboard.cancel")}
+                  </button>
+                  <button
+                    onClick={handleAddPerson}
+                    className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-berry hover:bg-berry-dark text-white font-semibold min-h-[44px] transition-colors ${focusRing}`}
+                  >
+                    {t("dashboard.add")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+// A small present: dashed outline when nothing is planned, red box once there's an idea,
+// and a gold ribbon once every gift for the person is bought and wrapped.
+function GiftBox({ state, className = "" }: { state: "empty" | "idea" | "done"; className?: string }) {
+  if (state === "empty") {
+    return (
+      <svg className={className} viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <rect x="5" y="14" width="30" height="22" rx="3" stroke="#A9BCD0" strokeWidth="2" strokeDasharray="4 3" />
+        <rect x="3" y="9" width="34" height="7" rx="2" stroke="#A9BCD0" strokeWidth="2" strokeDasharray="4 3" />
+      </svg>
+    );
+  }
+  return (
+    <svg className={className} viewBox="0 0 40 40" aria-hidden="true">
+      <rect x="5" y="14" width="30" height="22" rx="3" fill="#C2303A" />
+      <rect x="3" y="9" width="34" height="7" rx="2" fill="#9E2530" />
+      {state === "done" && (
+        <>
+          <rect x="17.5" y="9" width="5" height="27" fill="#F0B84E" />
+          <path d="M20 9 C 14 2, 8 6, 12 9 Z M20 9 C 26 2, 32 6, 28 9 Z" fill="#F0B84E" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function PersonSection({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2 className="font-display font-semibold text-2xl sm:text-3xl tracking-tight mb-5 flex items-baseline gap-3">
+        {title}
+        <span className="text-base font-medium text-frost">{count}</span>
+      </h2>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
+interface PersonCardProps {
+  person: Person;
+  listType: ListType;
+  isFirst: boolean;
+  isLast: boolean;
+  t: Translate;
+  onSaveGift: (personId: string, description: string, giftId?: string) => Promise<boolean>;
+  onDeleteGift: (giftId: string) => void;
+  onToggleGift: (giftId: string, field: "purchased" | "giftWrapped", value: boolean) => void;
+  onMove: (personId: string, direction: "up" | "down", listType: ListType) => void;
+  onDeletePerson: (personId: string) => void;
+}
+
+// Each person is drawn as a paper gift tag: punched hole, name, and the gifts planned for them.
+function PersonCard({ person, listType, isFirst, isLast, t, onSaveGift, onDeleteGift, onToggleGift, onMove, onDeletePerson }: PersonCardProps) {
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  const done = isPersonDone(person);
+  const hasGifts = person.gifts.length > 0;
+
+  const closeForm = () => {
+    setAdding(false);
+    setDraft("");
+  };
+
+  const submit = async () => {
+    if (await onSaveGift(person.id, draft)) closeForm();
+  };
+
+  return (
+    <article
+      id={`person-${person.id}`}
+      className={`scroll-mt-6 relative bg-snow text-ink rounded-2xl pl-4 pr-3 sm:pl-6 sm:pr-4 py-4 sm:py-5 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.6)] border-l-[6px] ${
+        done ? "border-spruce" : hasGifts ? "border-candle" : "border-berry"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <span className="hidden sm:block w-3 h-3 rounded-full bg-night ring-2 ring-frost/60 shrink-0" aria-hidden="true" />
+        <h3 className="font-display font-semibold text-xl tracking-tight flex-1 min-w-0 truncate">{person.name}</h3>
+        <div className="flex items-center">
+          <IconButton label={t("dashboard.moveUp")} disabled={isFirst} onClick={() => onMove(person.id, "up", listType)}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+          </IconButton>
+          <IconButton label={t("dashboard.moveDown")} disabled={isLast} onClick={() => onMove(person.id, "down", listType)}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </IconButton>
+          {!hasGifts && (
+            <IconButton
+              label={t("dashboard.removePerson")}
+              tone="danger"
+              onClick={() => {
+                if (confirm(`Are you sure you want to remove ${person.name}?`)) {
+                  onDeletePerson(person.id);
+                }
+              }}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </IconButton>
+          )}
+        </div>
+      </div>
+
+      {hasGifts ? (
+        <ul className="mt-3 divide-y divide-ink/10">
+          {person.gifts.map((gift) => (
+            <GiftRow
+              key={gift.id}
+              gift={gift}
+              t={t}
+              onSave={(description) => onSaveGift(person.id, description, gift.id)}
+              onDelete={() => onDeleteGift(gift.id)}
+              onToggle={(field, value) => onToggleGift(gift.id, field, value)}
+            />
+          ))}
+        </ul>
+      ) : (
+        !adding && <p className="mt-2 text-ink/55">{t("dashboard.noGiftPlanned")}</p>
+      )}
+
+      {adding ? (
+        <div className="mt-3 flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit();
+              if (e.key === "Escape") closeForm();
+            }}
+            className="flex-1 px-3 py-2 text-base rounded-xl bg-white border border-ink/15 focus:outline-none focus:border-spruce focus:ring-2 focus:ring-spruce/20 min-h-[44px]"
+            placeholder={t("dashboard.giftPlaceholder")}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={closeForm}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-ink/70 hover:bg-ink/5 font-semibold min-h-[44px] ${focusRing}`}
+            >
+              {t("dashboard.cancel")}
+            </button>
+            <button
+              onClick={submit}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-xl bg-spruce hover:bg-spruce-dark text-white font-semibold min-h-[44px] ${focusRing}`}
+            >
+              {t("dashboard.addGift")}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className={`mt-3 inline-flex items-center gap-1.5 px-3 py-2 -ml-3 rounded-xl text-spruce font-semibold hover:bg-spruce/10 min-h-[44px] ${focusRing}`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+          </svg>
+          {t("dashboard.addGift")}
+        </button>
+      )}
+    </article>
+  );
+}
+
+interface GiftRowProps {
+  gift: Gift;
+  t: Translate;
+  onSave: (description: string) => Promise<boolean>;
+  onDelete: () => void;
+  onToggle: (field: "purchased" | "giftWrapped", value: boolean) => void;
+}
+
+function GiftRow({ gift, t, onSave, onDelete, onToggle }: GiftRowProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(gift.description);
+  const done = isGiftDone(gift);
+
+  const cancel = () => {
+    setEditing(false);
+    setDraft(gift.description);
+  };
+
+  const save = async () => {
+    if (await onSave(draft)) setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <li className="py-3 flex flex-col sm:flex-row gap-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") cancel();
+          }}
+          className="flex-1 px-3 py-2 text-base rounded-xl bg-white border border-ink/15 focus:outline-none focus:border-spruce focus:ring-2 focus:ring-spruce/20 min-h-[44px]"
+          autoFocus
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={cancel}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-ink/70 hover:bg-ink/5 font-semibold min-h-[44px] ${focusRing}`}
+          >
+            {t("dashboard.cancel")}
+          </button>
+          <button
+            onClick={save}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl bg-spruce hover:bg-spruce-dark text-white font-semibold min-h-[44px] ${focusRing}`}
+          >
+            {t("dashboard.save")}
+          </button>
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <li className="py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+      <p className={`flex-1 min-w-0 break-words ${done ? "line-through decoration-ink/40 text-ink/50" : ""}`}>
+        {gift.description}
+      </p>
+      {/* On phones the toggles drop to their own row; edit/delete stay beside the description */}
+      <div className="order-last sm:order-none w-full sm:w-auto flex items-center gap-1.5">
+        <StatusToggle active={gift.purchased} onClick={() => onToggle("purchased", !gift.purchased)}>
+          {t("dashboard.purchased")}
+        </StatusToggle>
+        <StatusToggle active={gift.giftWrapped} onClick={() => onToggle("giftWrapped", !gift.giftWrapped)}>
+          {t("dashboard.wrapped")}
+        </StatusToggle>
+      </div>
+      <span className="flex -mr-1">
+        <IconButton
+          label={t("dashboard.edit")}
+          onClick={() => {
+            setDraft(gift.description);
+            setEditing(true);
+          }}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M4 20h4L18.768 9.232a2.5 2.5 0 00-3.536-3.536L4.5 16.464 4 20z" />
+        </IconButton>
+        <IconButton label={t("dashboard.delete")} tone="danger" onClick={onDelete}>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </IconButton>
+      </span>
+    </li>
+  );
+}
+
+function StatusToggle({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1.5 px-3 rounded-full text-sm font-medium border min-h-[44px] sm:min-h-[34px] transition-colors ${focusRing} ${
+        active
+          ? "bg-spruce border-spruce text-white"
+          : "bg-transparent border-ink/20 text-ink/65 hover:border-ink/40 hover:text-ink"
+      }`}
+    >
+      <svg className={`w-3.5 h-3.5 ${active ? "" : "opacity-0 -ml-5"} transition-all`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+      </svg>
+      {children}
+    </button>
+  );
+}
+
+function IconButton({
+  label,
+  onClick,
+  disabled,
+  tone = "default",
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  tone?: "default" | "danger";
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={`w-11 h-11 sm:w-9 sm:h-9 grid place-items-center rounded-lg text-ink/45 disabled:opacity-25 disabled:pointer-events-none transition-colors ${focusRing} ${
+        tone === "danger" ? "hover:text-berry hover:bg-berry/10" : "hover:text-ink hover:bg-ink/5"
+      }`}
+    >
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        {children}
+      </svg>
+    </button>
+  );
+}
