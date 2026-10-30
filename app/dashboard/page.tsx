@@ -620,7 +620,7 @@ interface PersonCardProps {
   onDeletePerson: (personId: string) => void;
 }
 
-// Each person is drawn as a paper gift tag: punched hole, name, and the gifts planned for them.
+// Each person is drawn as a frosted-glass gift tag: punched hole, name, and the gifts planned for them.
 function PersonCard({ person, listType, isFirst, isLast, t, onSaveGift, onDeleteGift, onToggleGift, onMove, onDeletePerson }: PersonCardProps) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
@@ -639,8 +639,8 @@ function PersonCard({ person, listType, isFirst, isLast, t, onSaveGift, onDelete
   return (
     <article
       id={`person-${person.id}`}
-      className={`scroll-mt-6 relative bg-snow text-ink rounded-2xl pl-4 pr-3 sm:pl-6 sm:pr-4 py-4 sm:py-5 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.6)] border-l-[6px] ${
-        done ? "border-spruce" : hasGifts ? "border-candle" : "border-berry"
+      className={`scroll-mt-6 relative bg-night-soft/50 backdrop-blur-lg border border-white/15 text-snow rounded-2xl pl-4 pr-3 sm:pl-6 sm:pr-4 py-4 sm:py-5 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.5)] border-l-[6px] ${
+        done ? "border-l-spruce" : hasGifts ? "border-l-candle" : "border-l-berry"
       }`}
     >
       <div className="flex items-center gap-3">
@@ -670,7 +670,7 @@ function PersonCard({ person, listType, isFirst, isLast, t, onSaveGift, onDelete
       </div>
 
       {hasGifts ? (
-        <ul className="mt-3 divide-y divide-ink/10">
+        <ul className="mt-3 divide-y divide-white/10">
           {person.gifts.map((gift) => (
             <GiftRow
               key={gift.id}
@@ -683,7 +683,7 @@ function PersonCard({ person, listType, isFirst, isLast, t, onSaveGift, onDelete
           ))}
         </ul>
       ) : (
-        !adding && <p className="mt-2 text-ink/55">{t("dashboard.noGiftPlanned")}</p>
+        !adding && <p className="mt-2 text-frost">{t("dashboard.noGiftPlanned")}</p>
       )}
 
       {adding ? (
@@ -696,14 +696,14 @@ function PersonCard({ person, listType, isFirst, isLast, t, onSaveGift, onDelete
               if (e.key === "Enter") submit();
               if (e.key === "Escape") closeForm();
             }}
-            className="flex-1 px-3 py-2 text-base rounded-xl bg-white border border-ink/15 focus:outline-none focus:border-spruce focus:ring-2 focus:ring-spruce/20 min-h-[44px]"
+            className="flex-1 px-3 py-2 text-base rounded-xl bg-night/60 border border-white/15 text-snow placeholder:text-frost/60 focus:outline-none focus:border-candle min-h-[44px]"
             placeholder={t("dashboard.giftPlaceholder")}
             autoFocus
           />
           <div className="flex gap-2">
             <button
               onClick={closeForm}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-ink/70 hover:bg-ink/5 font-semibold min-h-[44px] ${focusRing}`}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-frost hover:text-snow hover:bg-white/10 font-semibold min-h-[44px] ${focusRing}`}
             >
               {t("dashboard.cancel")}
             </button>
@@ -718,7 +718,7 @@ function PersonCard({ person, listType, isFirst, isLast, t, onSaveGift, onDelete
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className={`mt-3 inline-flex items-center gap-1.5 px-3 py-2 -ml-3 rounded-xl text-spruce font-semibold hover:bg-spruce/10 min-h-[44px] ${focusRing}`}
+          className={`mt-3 inline-flex items-center gap-1.5 px-3 py-2 -ml-3 rounded-xl text-mint font-semibold hover:bg-white/10 min-h-[44px] ${focusRing}`}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -763,13 +763,13 @@ function GiftRow({ gift, t, onSave, onDelete, onToggle }: GiftRowProps) {
             if (e.key === "Enter") save();
             if (e.key === "Escape") cancel();
           }}
-          className="flex-1 px-3 py-2 text-base rounded-xl bg-white border border-ink/15 focus:outline-none focus:border-spruce focus:ring-2 focus:ring-spruce/20 min-h-[44px]"
+          className="flex-1 px-3 py-2 text-base rounded-xl bg-night/60 border border-white/15 text-snow placeholder:text-frost/60 focus:outline-none focus:border-candle min-h-[44px]"
           autoFocus
         />
         <div className="flex gap-2">
           <button
             onClick={cancel}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-ink/70 hover:bg-ink/5 font-semibold min-h-[44px] ${focusRing}`}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-frost hover:text-snow hover:bg-white/10 font-semibold min-h-[44px] ${focusRing}`}
           >
             {t("dashboard.cancel")}
           </button>
@@ -786,7 +786,7 @@ function GiftRow({ gift, t, onSave, onDelete, onToggle }: GiftRowProps) {
 
   return (
     <li className="py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-      <p className={`flex-1 min-w-0 break-words ${done ? "line-through decoration-ink/40 text-ink/50" : ""}`}>
+      <p className={`flex-1 min-w-0 break-words ${done ? "line-through decoration-frost/50 text-frost/60" : ""}`}>
         {gift.description}
       </p>
       {/* On phones the toggles drop to their own row; edit/delete stay beside the description */}
@@ -824,7 +824,7 @@ function StatusToggle({ active, onClick, children }: { active: boolean; onClick:
       className={`inline-flex items-center gap-1.5 px-3 rounded-full text-sm font-medium border min-h-[44px] sm:min-h-[34px] transition-colors ${focusRing} ${
         active
           ? "bg-spruce border-spruce text-white"
-          : "bg-transparent border-ink/20 text-ink/65 hover:border-ink/40 hover:text-ink"
+          : "bg-transparent border-white/25 text-frost hover:border-white/50 hover:text-snow"
       }`}
     >
       <svg className={`w-3.5 h-3.5 ${active ? "" : "opacity-0 -ml-5"} transition-all`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -854,8 +854,8 @@ function IconButton({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className={`w-11 h-11 sm:w-9 sm:h-9 grid place-items-center rounded-lg text-ink/45 disabled:opacity-25 disabled:pointer-events-none transition-colors ${focusRing} ${
-        tone === "danger" ? "hover:text-berry hover:bg-berry/10" : "hover:text-ink hover:bg-ink/5"
+      className={`w-11 h-11 sm:w-9 sm:h-9 grid place-items-center rounded-lg text-frost/70 disabled:opacity-25 disabled:pointer-events-none transition-colors ${focusRing} ${
+        tone === "danger" ? "hover:text-[#F2868C] hover:bg-berry/20" : "hover:text-snow hover:bg-white/10"
       }`}
     >
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

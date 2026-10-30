@@ -17,6 +17,7 @@ const config: Config = {
         candle: "#F0B84E",
         snow: "#F4F7FB",
         frost: "#A9BCD0",
+        mint: "#8FD9B4",
         ink: "#13202F",
       },
       fontFamily: {
