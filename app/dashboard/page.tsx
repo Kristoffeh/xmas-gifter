@@ -504,65 +504,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="mb-6">
-          {!addingPerson ? (
-            <button
-              onClick={() => setAddingPerson(true)}
-              className="w-full px-6 py-3 bg-white/70 dark:bg-gray-800/70 backdrop-blur-md hover:bg-white/80 dark:hover:bg-gray-800/80 text-gray-800 dark:text-white font-semibold rounded-lg shadow-xl border-2 border-dashed border-gray-300/50 dark:border-gray-600/50 hover:border-gray-400 dark:hover:border-gray-500 transition duration-200 flex items-center justify-center gap-2"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              {t("dashboard.addPerson") || "Add New Person"}
-            </button>
-          ) : (
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-4 sm:p-6 border-2 border-gray-200/50 dark:border-gray-700/50">
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={newPersonName}
-                      onChange={(e) => setNewPersonName(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter") {
-                          handleAddPerson();
-                        }
-                      }}
-                      placeholder={t("dashboard.personNamePlaceholder") || "Enter person's name"}
-                      className="flex-1 px-4 py-3 sm:py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none min-h-[44px]"
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setAddingPerson(false);
-                          setNewPersonName("");
-                        }}
-                        className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition duration-200 font-semibold text-base min-h-[44px]"
-                      >
-                        {t("dashboard.cancel")}
-                      </button>
-                      <button
-                        onClick={handleAddPerson}
-                        className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 font-semibold text-base min-h-[44px]"
-                      >
-                        {t("dashboard.add") || "Add"}
-                      </button>
-                    </div>
-                  </div>
-            </div>
-          )}
-        </div>
-
         <div className="space-y-4 sm:space-y-6">
           {peopleWithGifts.length > 0 && (
             <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-4 sm:p-6 md:p-8 border border-white/30 dark:border-gray-700/30">
@@ -1057,6 +998,65 @@ export default function DashboardPage() {
               </p>
             </div>
           )}
+
+          <div>
+            {!addingPerson ? (
+              <button
+                onClick={() => setAddingPerson(true)}
+                className="w-full px-6 py-3 bg-white/70 dark:bg-gray-800/70 backdrop-blur-md hover:bg-white/80 dark:hover:bg-gray-800/80 text-gray-800 dark:text-white font-semibold rounded-lg shadow-xl border-2 border-dashed border-gray-300/50 dark:border-gray-600/50 hover:border-gray-400 dark:hover:border-gray-500 transition duration-200 flex items-center justify-center gap-2"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                {t("dashboard.addPerson") || "Add New Person"}
+              </button>
+            ) : (
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-lg shadow-xl p-4 sm:p-6 border-2 border-gray-200/50 dark:border-gray-700/50">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={newPersonName}
+                        onChange={(e) => setNewPersonName(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") {
+                            handleAddPerson();
+                          }
+                        }}
+                        placeholder={t("dashboard.personNamePlaceholder") || "Enter person's name"}
+                        className="flex-1 px-4 py-3 sm:py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none min-h-[44px]"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setAddingPerson(false);
+                            setNewPersonName("");
+                          }}
+                          className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition duration-200 font-semibold text-base min-h-[44px]"
+                        >
+                          {t("dashboard.cancel")}
+                        </button>
+                        <button
+                          onClick={handleAddPerson}
+                          className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 font-semibold text-base min-h-[44px]"
+                        >
+                          {t("dashboard.add") || "Add"}
+                        </button>
+                      </div>
+                    </div>
+              </div>
+            )}
+          </div>
         </div>
         </div>
       </div>
