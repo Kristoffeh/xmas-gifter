@@ -65,7 +65,7 @@ export default function DashboardPage() {
       const left = Math.random() * 100;
       const duration = 20 + Math.random() * 20;
       const delay = -(Math.random() * duration);
-      const size = 0.5 + Math.random() * 1;
+      const size = 0.5 + Math.random();
       const driftAmount = 20 + Math.random() * 40;
       const animationName = `snowfall-${i}`;
       return { left, duration, delay, size, driftAmount, animationName, id: i };
@@ -200,6 +200,9 @@ export default function DashboardPage() {
     }
     return false;
   };
+
+  // Opens the gift dialog: adds a gift for the person, or edits the given gift
+  const handleOpenGift = (person: Person, gift?: Gift) => setGiftDialog({ person, gift });
 
   const handleDeleteGift = async (giftId: string) => {
     try {
@@ -337,7 +340,7 @@ export default function DashboardPage() {
 
   const sharedCardProps = {
     t,
-    onOpenGift: (person: Person, gift?: Gift) => setGiftDialog({ person, gift }),
+    onOpenGift: handleOpenGift,
     onDeleteGift: handleDeleteGift,
     onToggleGift: handleToggleGiftStatus,
     onMove: handleMovePerson,
