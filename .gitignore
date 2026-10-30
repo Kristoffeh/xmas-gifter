@@ -38,6 +38,8 @@ next-env.d.ts
 # prisma
 /prisma/migrations
 
+# idea
+.idea/*
 
 
 

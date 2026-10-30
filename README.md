@@ -43,63 +43,36 @@ cd xmas-gifter
 npm install
 ```
 
+   If npm warns that Prisma's install scripts are not covered by `allowScripts`, that's fine: `npm run dev` and `npm run build` both run `prisma generate` themselves. To allow them anyway:
+```bash
+npm install-scripts approve @prisma/client prisma @prisma/engines
+```
+
 3. Set up environment variables:
-   - Copy `.env.example` to `.env`
+   - Copy `.env.example` to `.env` (`.env` is ignored by git, never commit it)
    - Update the `DATABASE_URL` with your MariaDB connection string:
      ```
      DATABASE_URL="mysql://user:password@localhost:3306/xmas_gifter"
      ```
    - Generate a secret for NextAuth and add it to `NEXTAUTH_SECRET`:
-     ```
-     NEXTAUTH_SECRET="your-secret-key-here"
+     ```bash
+     openssl rand -base64 32
      ```
    - Set `NEXTAUTH_URL` to your application URL (default: `http://localhost:3000`)
 
-4. Set up the database:
-```bash
-npx prisma migrate dev --name init
-```
-
-5. Generate Prisma Client:
-```bash
-npx prisma generate
-```
-
-6. Run the development server:
+4. Run the development server:
 ```bash
 npm run dev
 ```
+   The dev script (`scripts/dev.js`) generates the Prisma Client, then runs `prisma db push` to create the database and sync its tables with `prisma/schema.prisma`. If `DATABASE_URL` is missing or the database can't be reached, it skips the sync and starts Next.js anyway; pages load, but registering and logging in will fail.
 
-7. Open [http://localhost:3000](http://localhost:3000) in your browser.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Project Structure
+## Dependencies
 
-```
-xmas-gifter/
-├── app/
-│   ├── api/
-│   │   ├── auth/
-│   │   │   ├── [...nextauth]/route.ts    # NextAuth handler
-│   │   │   ├── register/route.ts         # User registration
-│   │   │   └── onboarding-complete/route.ts
-│   │   ├── people/route.ts               # People CRUD operations
-│   │   └── gifts/route.ts                # Gifts CRUD operations
-│   ├── dashboard/                        # Main dashboard page
-│   ├── login/                            # Login/Register page
-│   ├── onboarding/                       # Onboarding flow
-│   ├── layout.tsx                        # Root layout
-│   ├── page.tsx                          # Home page (redirects to login)
-│   └── providers.tsx                     # NextAuth SessionProvider
-├── lib/
-│   ├── auth.ts                           # NextAuth configuration
-│   └── prisma.ts                         # Prisma client instance
-├── prisma/
-│   └── schema.prisma                     # Database schema
-├── types/
-│   └── next-auth.d.ts                    # NextAuth type definitions
-└── middleware.ts                         # NextAuth middleware
-
-```
+- `next` is pinned to an exact version (currently `14.2.35`, the last 14.2 patch). Bump it deliberately rather than relying on `npm update`.
+- `npm audit` still reports advisories for Next.js 14, which no longer receives security fixes. Fixing them requires upgrading to Next.js 16 (and React 19), which is a breaking change that hasn't been done yet.
+- To update other dependencies within their allowed ranges, run `npm update`, then `npx tsc --noEmit` to typecheck.
 
 ## Database Schema
 
