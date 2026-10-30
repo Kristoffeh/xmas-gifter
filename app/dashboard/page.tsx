@@ -6,6 +6,7 @@ import { useSession, signOut } from "next-auth/react";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import { useLanguage } from "@/lib/language-context";
 import { DEFAULT_SETTINGS, SETTINGS_LIMITS, type UserSettings } from "@/lib/settings";
+import { GIFT_NOTE_MAX_LENGTH, GIFT_URL_MAX_LENGTH, normalizeGiftUrl } from "@/lib/gift-url";
 
 const displayFont = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-display" });
 const bodyFont = Figtree({ subsets: ["latin"], variable: "--font-body" });
@@ -13,6 +14,8 @@ const bodyFont = Figtree({ subsets: ["latin"], variable: "--font-body" });
 interface Gift {
   id: string;
   description: string;
+  url: string | null;
+  note: string | null;
   purchased: boolean;
   giftWrapped: boolean;
 }
@@ -25,6 +28,7 @@ interface Person {
 
 type Translate = (key: string) => string;
 type ListType = "withGifts" | "withoutGifts";
+type GiftDraft = { description: string; url: string | null; note: string | null };
 
 const isGiftDone = (gift: Gift) => gift.purchased && gift.giftWrapped;
 const isPersonDone = (person: Person) => person.gifts.length > 0 && person.gifts.every(isGiftDone);
@@ -44,6 +48,8 @@ export default function DashboardPage() {
   const [newPersonName, setNewPersonName] = useState("");
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The gift being added (no gift) or edited, shown in the gift dialog
+  const [giftDialog, setGiftDialog] = useState<{ person: Person; gift?: Gift } | null>(null);
   const saveSettingsTimer = useRef<ReturnType<typeof setTimeout>>();
   const pendingSettings = useRef<Partial<UserSettings>>({});
   const [timeUntilChristmas, setTimeUntilChristmas] = useState({
@@ -167,8 +173,8 @@ export default function DashboardPage() {
   };
 
   // Returns true when the gift was saved, so the caller can close its form
-  const handleSaveGift = async (personId: string, description: string, giftId?: string) => {
-    if (!description.trim()) {
+  const handleSaveGift = async (personId: string, draft: GiftDraft, giftId?: string) => {
+    if (!draft.description.trim()) {
       return false;
     }
 
@@ -176,7 +182,13 @@ export default function DashboardPage() {
       const response = await fetch("/api/gifts", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personId, description: description.trim(), giftId }),
+        body: JSON.stringify({
+          personId,
+          description: draft.description.trim(),
+          url: draft.url,
+          note: draft.note?.trim() || null,
+          giftId,
+        }),
       });
 
       if (response.ok) {
@@ -317,7 +329,7 @@ export default function DashboardPage() {
 
   const sharedCardProps = {
     t,
-    onSaveGift: handleSaveGift,
+    onOpenGift: (person: Person, gift?: Gift) => setGiftDialog({ person, gift }),
     onDeleteGift: handleDeleteGift,
     onToggleGift: handleToggleGiftStatus,
     onMove: handleMovePerson,
@@ -617,6 +629,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {giftDialog && (
+        <GiftDialog
+          personName={giftDialog.person.name}
+          gift={giftDialog.gift}
+          t={t}
+          onSave={(draft) => handleSaveGift(giftDialog.person.id, draft, giftDialog.gift?.id)}
+          onClose={() => setGiftDialog(null)}
+        />
+      )}
+
       {settingsOpen && (
         <SettingsSheet
           settings={settings}
@@ -700,6 +722,147 @@ function SettingsSheet({
   );
 }
 
+function GiftDialog({
+  personName,
+  gift,
+  t,
+  onSave,
+  onClose,
+}: {
+  personName: string;
+  gift?: Gift;
+  t: Translate;
+  onSave: (draft: GiftDraft) => Promise<boolean>;
+  onClose: () => void;
+}) {
+  const [description, setDescription] = useState(gift?.description ?? "");
+  const [url, setUrl] = useState(gift?.url ?? "");
+  const [note, setNote] = useState(gift?.note ?? "");
+  const [error, setError] = useState<{ field: "description" | "url" | "form"; message: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!description.trim()) {
+      setError({ field: "description", message: t("gift.nameRequired") });
+      return;
+    }
+    const normalizedUrl = url.trim() ? normalizeGiftUrl(url) : null;
+    if (url.trim() && !normalizedUrl) {
+      setError({ field: "url", message: t("gift.urlInvalid") });
+      return;
+    }
+
+    setError(null);
+    setSaving(true);
+    if (await onSave({ description, url: normalizedUrl, note })) {
+      onClose();
+    } else {
+      setSaving(false);
+      setError({ field: "form", message: t("gift.saveFailed") });
+    }
+  };
+
+  const inputClass =
+    "w-full px-4 py-2.5 text-base rounded-xl bg-night border text-snow placeholder:text-frost/60 focus:outline-none focus:border-candle min-h-[44px]";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-night/70" onClick={onClose} aria-hidden="true" />
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="gift-dialog-title"
+        onSubmit={submit}
+        noValidate
+        className="relative w-full sm:max-w-md bg-night-soft border-t sm:border border-white/15 rounded-t-3xl sm:rounded-2xl px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl shadow-black/50"
+      >
+        <div className="sm:hidden mx-auto mb-4 h-1 w-10 rounded-full bg-white/25" aria-hidden="true" />
+        <p className="text-sm text-frost truncate">
+          {t("gift.for")} {personName}
+        </p>
+        <h2 id="gift-dialog-title" className="font-display font-semibold text-xl tracking-tight mb-5">
+          {gift ? t("gift.editTitle") : t("dashboard.addGift")}
+        </h2>
+
+        <label htmlFor="gift-name" className="block font-medium mb-1.5">
+          {t("gift.name")}
+        </label>
+        <input
+          id="gift-name"
+          type="text"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder={t("dashboard.giftPlaceholder")}
+          aria-invalid={error?.field === "description"}
+          aria-describedby={error?.field === "description" ? "gift-error" : undefined}
+          className={`${inputClass} ${error?.field === "description" ? "border-[#F2868C]" : "border-night-line"}`}
+          autoFocus
+        />
+
+        <label htmlFor="gift-url" className="block font-medium mt-4 mb-1.5">
+          {t("gift.url")} <span className="font-normal text-frost">{t("gift.optional")}</span>
+        </label>
+        <input
+          id="gift-url"
+          type="url"
+          inputMode="url"
+          autoComplete="off"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          maxLength={GIFT_URL_MAX_LENGTH}
+          placeholder="https://"
+          aria-invalid={error?.field === "url"}
+          aria-describedby={error?.field === "url" ? "gift-error" : undefined}
+          className={`${inputClass} ${error?.field === "url" ? "border-[#F2868C]" : "border-night-line"}`}
+        />
+
+        <label htmlFor="gift-note" className="block font-medium mt-4 mb-1.5">
+          {t("gift.note")} <span className="font-normal text-frost">{t("gift.optional")}</span>
+        </label>
+        <textarea
+          id="gift-note"
+          rows={3}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={GIFT_NOTE_MAX_LENGTH}
+          placeholder={t("gift.notePlaceholder")}
+          className={`${inputClass} border-night-line resize-y`}
+        />
+
+        {error && (
+          <p id="gift-error" role="alert" className="mt-3 text-sm text-[#F2868C]">
+            {error.message}
+          </p>
+        )}
+
+        <div className="mt-6 flex gap-2 sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-frost hover:text-snow hover:bg-white/10 font-semibold min-h-[44px] ${focusRing}`}
+          >
+            {t("dashboard.cancel")}
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-spruce hover:bg-spruce-dark text-white font-semibold min-h-[44px] disabled:opacity-60 ${focusRing}`}
+          >
+            {gift ? t("dashboard.save") : t("dashboard.addGift")}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // A small present: dashed outline when nothing is planned, red box once there's an idea,
 // and a gold ribbon once every gift for the person is bought and wrapped.
 function GiftBox({ state, className = "" }: { state: "empty" | "idea" | "done"; className?: string }) {
@@ -743,7 +906,7 @@ interface PersonCardProps {
   isFirst: boolean;
   isLast: boolean;
   t: Translate;
-  onSaveGift: (personId: string, description: string, giftId?: string) => Promise<boolean>;
+  onOpenGift: (person: Person, gift?: Gift) => void;
   onDeleteGift: (giftId: string) => void;
   onToggleGift: (giftId: string, field: "purchased" | "giftWrapped", value: boolean) => void;
   onMove: (personId: string, direction: "up" | "down", listType: ListType) => void;
@@ -751,20 +914,9 @@ interface PersonCardProps {
 }
 
 // Each person is drawn as a frosted-glass gift tag: punched hole, name, and the gifts planned for them.
-function PersonCard({ person, listType, isFirst, isLast, t, onSaveGift, onDeleteGift, onToggleGift, onMove, onDeletePerson }: PersonCardProps) {
-  const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState("");
+function PersonCard({ person, listType, isFirst, isLast, t, onOpenGift, onDeleteGift, onToggleGift, onMove, onDeletePerson }: PersonCardProps) {
   const done = isPersonDone(person);
   const hasGifts = person.gifts.length > 0;
-
-  const closeForm = () => {
-    setAdding(false);
-    setDraft("");
-  };
-
-  const submit = async () => {
-    if (await onSaveGift(person.id, draft)) closeForm();
-  };
 
   return (
     <article
@@ -806,56 +958,25 @@ function PersonCard({ person, listType, isFirst, isLast, t, onSaveGift, onDelete
               key={gift.id}
               gift={gift}
               t={t}
-              onSave={(description) => onSaveGift(person.id, description, gift.id)}
+              onEdit={() => onOpenGift(person, gift)}
               onDelete={() => onDeleteGift(gift.id)}
               onToggle={(field, value) => onToggleGift(gift.id, field, value)}
             />
           ))}
         </ul>
       ) : (
-        !adding && <p className="mt-2 text-frost">{t("dashboard.noGiftPlanned")}</p>
+        <p className="mt-2 text-frost">{t("dashboard.noGiftPlanned")}</p>
       )}
 
-      {adding ? (
-        <div className="mt-3 flex flex-col sm:flex-row gap-2">
-          <input
-            type="text"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submit();
-              if (e.key === "Escape") closeForm();
-            }}
-            className="flex-1 px-3 py-2 text-base rounded-xl bg-night/60 border border-white/15 text-snow placeholder:text-frost/60 focus:outline-none focus:border-candle min-h-[44px]"
-            placeholder={t("dashboard.giftPlaceholder")}
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={closeForm}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-frost hover:text-snow hover:bg-white/10 font-semibold min-h-[44px] ${focusRing}`}
-            >
-              {t("dashboard.cancel")}
-            </button>
-            <button
-              onClick={submit}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-xl bg-spruce hover:bg-spruce-dark text-white font-semibold min-h-[44px] ${focusRing}`}
-            >
-              {t("dashboard.addGift")}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={() => setAdding(true)}
-          className={`mt-3 inline-flex items-center gap-1.5 px-3 py-2 -ml-3 rounded-xl text-mint font-semibold hover:bg-white/10 min-h-[44px] ${focusRing}`}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-          </svg>
-          {t("dashboard.addGift")}
-        </button>
-      )}
+      <button
+        onClick={() => onOpenGift(person)}
+        className={`mt-3 inline-flex items-center gap-1.5 px-3 py-2 -ml-3 rounded-xl text-mint font-semibold hover:bg-white/10 min-h-[44px] ${focusRing}`}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+        </svg>
+        {t("dashboard.addGift")}
+      </button>
     </article>
   );
 }
@@ -863,62 +984,54 @@ function PersonCard({ person, listType, isFirst, isLast, t, onSaveGift, onDelete
 interface GiftRowProps {
   gift: Gift;
   t: Translate;
-  onSave: (description: string) => Promise<boolean>;
+  onEdit: () => void;
   onDelete: () => void;
   onToggle: (field: "purchased" | "giftWrapped", value: boolean) => void;
 }
 
-function GiftRow({ gift, t, onSave, onDelete, onToggle }: GiftRowProps) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(gift.description);
-  const done = isGiftDone(gift);
-
-  const cancel = () => {
-    setEditing(false);
-    setDraft(gift.description);
-  };
-
-  const save = async () => {
-    if (await onSave(draft)) setEditing(false);
-  };
-
-  if (editing) {
-    return (
-      <li className="py-3 flex flex-col sm:flex-row gap-2">
-        <input
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") save();
-            if (e.key === "Escape") cancel();
-          }}
-          className="flex-1 px-3 py-2 text-base rounded-xl bg-night/60 border border-white/15 text-snow placeholder:text-frost/60 focus:outline-none focus:border-candle min-h-[44px]"
-          autoFocus
-        />
-        <div className="flex gap-2">
-          <button
-            onClick={cancel}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-frost hover:text-snow hover:bg-white/10 font-semibold min-h-[44px] ${focusRing}`}
-          >
-            {t("dashboard.cancel")}
-          </button>
-          <button
-            onClick={save}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl bg-spruce hover:bg-spruce-dark text-white font-semibold min-h-[44px] ${focusRing}`}
-          >
-            {t("dashboard.save")}
-          </button>
-        </div>
-      </li>
-    );
+// Short label for a gift link, e.g. "amazon.com" for https://www.amazon.com/dp/...
+function linkLabel(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
   }
+}
+
+function GiftRow({ gift, t, onEdit, onDelete, onToggle }: GiftRowProps) {
+  const done = isGiftDone(gift);
 
   return (
     <li className="py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-      <p className={`flex-1 min-w-0 break-words ${done ? "line-through decoration-frost/50 text-frost/60" : ""}`}>
-        {gift.description}
-      </p>
+      <div className="flex-1 min-w-0">
+        <p className={`break-words ${done ? "line-through decoration-frost/50 text-frost/60" : ""}`}>
+          {gift.description}
+        </p>
+        {gift.url && (
+          <a
+            href={gift.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={gift.url}
+            className={`inline-flex items-center gap-1 max-w-full text-sm text-mint hover:underline underline-offset-4 rounded ${focusRing}`}
+          >
+            <span className="truncate">{linkLabel(gift.url)}</span>
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            <span className="sr-only">{t("gift.opensInNewTab")}</span>
+          </a>
+        )}
+        {gift.note && (
+          <p className="mt-1 flex gap-1.5 text-sm text-candle/90">
+            <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-9 8l3-3h11a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v14z" />
+            </svg>
+            <span className="sr-only">{t("gift.note")}:</span>
+            <span className="min-w-0 break-words whitespace-pre-line">{gift.note}</span>
+          </p>
+        )}
+      </div>
       {/* On phones the toggles drop to their own row; edit/delete stay beside the description */}
       <div className="order-last sm:order-none w-full sm:w-auto flex items-center gap-1.5">
         <StatusToggle active={gift.purchased} onClick={() => onToggle("purchased", !gift.purchased)}>
@@ -929,13 +1042,7 @@ function GiftRow({ gift, t, onSave, onDelete, onToggle }: GiftRowProps) {
         </StatusToggle>
       </div>
       <span className="flex -mr-1">
-        <IconButton
-          label={t("dashboard.edit")}
-          onClick={() => {
-            setDraft(gift.description);
-            setEditing(true);
-          }}
-        >
+        <IconButton label={t("dashboard.edit")} onClick={onEdit}>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M4 20h4L18.768 9.232a2.5 2.5 0 00-3.536-3.536L4.5 16.464 4 20z" />
         </IconButton>
         <IconButton label={t("dashboard.delete")} tone="danger" onClick={onDelete}>

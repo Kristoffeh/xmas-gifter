@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { GIFT_NOTE_MAX_LENGTH, normalizeGiftUrl } from "@/lib/gift-url";
 
 export async function POST(request: NextRequest) {
   try {
@@ -68,11 +69,31 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { personId, description, giftId } = body;
+    const { personId, description, giftId, url, note } = body;
 
     if (!personId || !description) {
       return NextResponse.json(
         { error: "Person ID and description are required" },
+        { status: 400 }
+      );
+    }
+
+    // The link is optional: blank clears it, anything else must be a valid web address
+    let giftUrl: string | null = null;
+    if (typeof url === "string" && url.trim()) {
+      giftUrl = normalizeGiftUrl(url);
+      if (!giftUrl) {
+        return NextResponse.json(
+          { error: "Invalid URL" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const giftNote = typeof note === "string" && note.trim() ? note.trim() : null;
+    if (giftNote && giftNote.length > GIFT_NOTE_MAX_LENGTH) {
+      return NextResponse.json(
+        { error: `Note must be at most ${GIFT_NOTE_MAX_LENGTH} characters` },
         { status: 400 }
       );
     }
@@ -112,13 +133,15 @@ export async function PUT(request: NextRequest) {
 
       gift = await prisma.gift.update({
         where: { id: giftId },
-        data: { description },
+        data: { description, url: giftUrl, note: giftNote },
       });
     } else {
       // Create new gift
       gift = await prisma.gift.create({
         data: {
           description,
+          url: giftUrl,
+          note: giftNote,
           personId,
         },
       });

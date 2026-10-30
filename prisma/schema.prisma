@@ -43,6 +43,8 @@ model Person {
 model Gift {
   id          String   @id @default(cuid())
   description String
+  url         String?  @db.Text
+  note        String?  @db.Text
   personId    String
   purchased   Boolean  @default(false)
   giftWrapped Boolean  @default(false)
