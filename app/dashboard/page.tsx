@@ -311,7 +311,15 @@ export default function DashboardPage() {
   if (status === "loading" || loading) {
     return (
       <div className={`${fontVars} min-h-screen flex items-center justify-center bg-night font-body text-frost`}>
-        <GiftBox state="idea" className="w-10 h-10 motion-safe:animate-pulse" />
+        <div role="status" className="relative w-16 h-16 grid place-items-center">
+          {/* Gold arc circling a faint track, with Santa resting in the middle */}
+          <svg className="absolute inset-0 motion-safe:animate-spin" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+            <circle cx="32" cy="32" r="28" stroke="#2A3F5C" strokeWidth="4" />
+            <circle cx="32" cy="32" r="28" stroke="#F0B84E" strokeWidth="4" strokeLinecap="round" strokeDasharray="44 132" />
+          </svg>
+          <SantaFace className="w-9 h-9" />
+          <span className="sr-only">{t("dashboard.loading")}</span>
+        </div>
       </div>
     );
   }
@@ -860,6 +868,23 @@ function GiftDialog({
         </div>
       </form>
     </div>
+  );
+}
+
+function SantaFace({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 40 40" aria-hidden="true">
+      {/* Hat, flopping to the right, with its pompom */}
+      <path d="M9 17 C 10 8, 18 3, 27 6 L 32 11 L 31 17 Z" fill="#C2303A" />
+      <circle cx="32" cy="11" r="3" fill="#F4F7FB" />
+      <ellipse cx="20" cy="23" rx="9" ry="6.5" fill="#F2C6A8" />
+      <rect x="7" y="15" width="26" height="5" rx="2.5" fill="#F4F7FB" />
+      <path d="M9 22 C 9 34, 15 38, 20 38 C 25 38, 31 34, 31 22 C 28 27, 24 28.5, 20 28.5 C 16 28.5, 12 27, 9 22 Z" fill="#F4F7FB" />
+      <circle cx="16.5" cy="22.5" r="1.2" fill="#13202F" />
+      <circle cx="23.5" cy="22.5" r="1.2" fill="#13202F" />
+      <circle cx="20" cy="25" r="1.7" fill="#E58E86" />
+      <path d="M20 26.8 C 17 25.2, 14 26, 13.5 28.2 C 16 28.8, 18 28.4, 20 27.8 C 22 28.4, 24 28.8, 26.5 28.2 C 26 26, 23 25.2, 20 26.8 Z" fill="#DCE4EE" />
+    </svg>
   );
 }
 
