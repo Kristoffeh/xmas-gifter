@@ -511,15 +511,22 @@ export default function DashboardPage() {
               <ul className="flex flex-wrap items-end gap-x-3 gap-y-4">
                 {people.map((person) => {
                   const state = isPersonDone(person) ? "done" : person.gifts.length > 0 ? "idea" : "empty";
+                  const doneCount = person.gifts.filter(isGiftDone).length;
                   return (
                     <li key={person.id}>
                       <a
                         href={`#person-${person.id}`}
                         title={person.name}
-                        className={`group flex flex-col items-center gap-1.5 w-14 rounded-lg ${focusRing}`}
+                        className={`group flex flex-col items-center gap-1.5 w-16 rounded-lg ${focusRing}`}
                       >
                         <GiftBox state={state} className="w-11 h-11 transition-transform group-hover:-translate-y-1" />
-                        <span className="text-xs text-frost group-hover:text-snow truncate max-w-full">{person.name}</span>
+                        {/* Gifts bought and wrapped out of all gifts planned for the person */}
+                        <span className="flex flex-col items-center max-w-full leading-tight">
+                          <span className={`text-[11px] tabular-nums whitespace-nowrap ${state === "done" ? "text-mint" : "text-frost/70"}`}>
+                            {doneCount}/{person.gifts.length} {t("dashboard.giftCount")}
+                          </span>
+                          <span className="text-xs text-frost group-hover:text-snow truncate max-w-full">{person.name}</span>
+                        </span>
                       </a>
                     </li>
                   );
