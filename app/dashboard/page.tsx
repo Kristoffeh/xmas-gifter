@@ -545,15 +545,9 @@ export default function DashboardPage() {
                   <strong className="font-display text-snow text-base">{wrappedGifts}</strong> {t("dashboard.wrappedCount")}
                 </span>
               </div>
-              <p className="mt-2 text-sm">
-                {peopleWithoutGifts.length === 0 ? (
-                  <span className="text-candle font-medium">{t("dashboard.allGiftsFound")}</span>
-                ) : (
-                  <span className="text-frost">
-                    {peopleWithoutGifts.length} {t("dashboard.peopleLeft")} {t("dashboard.stillNeedGiftsLower")}
-                  </span>
-                )}
-              </p>
+              {peopleWithoutGifts.length === 0 && (
+                <p className="mt-2 text-sm text-candle font-medium">{t("dashboard.allGiftsFound")}</p>
+              )}
             </div>
           )}
         </section>
@@ -1036,7 +1030,7 @@ function GiftRow({ gift, t, onEdit, onDelete, onToggle }: GiftRowProps) {
   return (
     <li className="py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
       <div className="flex-1 min-w-0">
-        <p className={`break-words ${done ? "line-through decoration-frost/50 text-frost/60" : ""}`}>
+        <p className={`break-words ${done ? "text-frost/60" : ""}`}>
           {gift.description}
         </p>
         {gift.url && (
